@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="utf-8" />
+    <!-- 1. Viewport 設定：禁止縮放，讓操作手感像原生 App -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
+    />
+    <meta name="theme-color" content="#0f172a" />
+    <meta name="description" content="艦艇服務台 POS 系統" />
+
+    <!-- 2. iOS PWA 全螢幕關鍵設定 -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+    <meta name="apple-mobile-web-app-title" content="艦艇POS" />
+
+    <!-- 圖示連結 (iOS 會自動尋找) -->
+    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
+
+    <!-- 3. 引入 Tailwind CSS (快速樣式) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- 4. PWA 設定檔連結 -->
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+
+    <title>艦艇服務台 POS</title>
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+  </body>
+</html>
