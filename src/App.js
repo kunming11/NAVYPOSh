@@ -284,7 +284,47 @@ const SimpleChart = ({ data, type, color, isDarkMode }) => {
 // ==========================================
 // 4. 模態框組件 (Modals)
 // ==========================================
+const LogDetailModal = ({ isOpen, onClose, log, isDarkMode }) => {
+  const s = getStyles(isDarkMode);
+  if (!isOpen || !log || !log.original_data) return null;
+  const oldOrder = log.original_data;
 
+  return (
+    <div className="absolute inset-0 z-[60] bg-black/60 flex items-center justify-center p-4" onClick={onClose}>
+      <div className={`${s.bgCard} w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80%]`} onClick={e => e.stopPropagation()}>
+        <div className={`p-4 border-b ${isDarkMode ? 'border-slate-700' : 'border-slate-100'} flex justify-between items-center`}>
+          <h3 className={`font-bold text-lg flex items-center gap-2 ${s.textMain}`}><History size={20} /> 原始收據快照</h3>
+          <button onClick={onClose} className={`p-1 rounded-full ${s.textSub} hover:bg-slate-100/10`}><X /></button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4">
+          <div className="space-y-4">
+             <div className="text-center p-2 bg-slate-100 dark:bg-slate-800 rounded-lg">
+                <div className={`text-xs ${s.textSub}`}>修改前總金額</div>
+                <div className="text-2xl font-bold text-slate-500 line-through">${oldOrder.total}</div>
+             </div>
+             <div className="space-y-2">
+                <div className={`text-sm font-bold ${s.textMain} border-b pb-1 mb-2 border-dashed border-slate-300`}>原始商品明細</div>
+                {oldOrder.items.map((item, idx) => (
+                  <div key={idx} className="flex justify-between items-center text-sm">
+                    <span className={s.textSub}>{item.name} x{item.qty}</span>
+                    <span className={s.textSub}>${item.price * item.qty}</span>
+                  </div>
+                ))}
+             </div>
+             <div className="pt-4 border-t border-slate-200 dark:border-slate-700 text-xs space-y-1 text-slate-400">
+                <div>原始單號: {oldOrder.order_id}</div>
+                <div>原始時間: {oldOrder.date}</div>
+                <div>原始客戶: {oldOrder.customer_name}</div>
+             </div>
+          </div>
+        </div>
+        <div className="p-4 border-t border-slate-200 dark:border-slate-700">
+           <button onClick={onClose} className="w-full py-3 bg-slate-500 text-white rounded-xl font-bold">關閉</button>
+        </div>
+      </div>
+    </div>
+  );
+};
 const PinConfirmModal = ({ isOpen, onClose, onConfirm, currentUser, isDarkMode, message }) => {
     const s = getStyles(isDarkMode);
     const [pin, setPin] = useState('');
@@ -461,51 +501,64 @@ const SettingsView = ({ isDarkMode, setIsDarkMode, layoutMode, setLayoutMode, on
 };
 
 const OperationLogView = ({ logs, onMenuClick, isDarkMode }) => {
-    const s = getStyles(isDarkMode);
-    const today = formatDateOnly(new Date());
-    const thirtyDaysAgo = getDaysAgo(30);
-    const [dateRange, setDateRange] = useState({ start: thirtyDaysAgo, end: today });
-    const [tab, setTab] = useState('delete');
-    const filteredLogs = logs.filter(log => {
-        const logDate = log.time.split(' ')[0];
-        return logDate >= dateRange.start && logDate <= dateRange.end && log.type === tab;
-    }).sort((a,b) => b.id - a.id);
-    return (
-        <div className={`flex flex-col h-full ${s.bgMain} transition-colors duration-300`}>
-            <Header title="操作紀錄" onMenuClick={onMenuClick} isDarkMode={isDarkMode} />
-            <div className="flex-1 overflow-y-auto p-4">
-                <div className={`${s.bgCard} p-3 rounded-xl shadow-sm mb-4 flex items-center gap-2`}>
-                    <div className="flex-1"><label className={`text-[10px] block mb-1 ${s.textSub}`}>開始日期</label><input type="date" value={dateRange.start} onChange={e => setDateRange({...dateRange, start: e.target.value})} className={`w-full p-1.5 rounded-lg text-sm outline-none ${s.input}`} /></div>
-                    <div className={s.textSub}>-</div>
-                    <div className="flex-1"><label className={`text-[10px] block mb-1 ${s.textSub}`}>結束日期</label><input type="date" value={dateRange.end} onChange={e => setDateRange({...dateRange, end: e.target.value})} className={`w-full p-1.5 rounded-lg text-sm outline-none ${s.input}`} /></div>
-                </div>
-                <div className="flex gap-2 mb-4">
-                    <button onClick={() => setTab('delete')} className={`flex-1 py-2 rounded-lg font-bold text-sm ${tab === 'delete' ? 'bg-red-500 text-white' : `${s.bgCard} ${s.textSub}`}`}>刪除紀錄</button>
-                    <button onClick={() => setTab('modify')} className={`flex-1 py-2 rounded-lg font-bold text-sm ${tab === 'modify' ? 'bg-orange-500 text-white' : `${s.bgCard} ${s.textSub}`}`}>修改紀錄</button>
-                </div>
-                <div className="space-y-3">
-                    {filteredLogs.length === 0 ? <div className={`text-center py-10 ${s.textSub}`}>無紀錄</div> : 
-                        filteredLogs.map(log => (
-                            <div key={log.id} className={`p-4 rounded-xl border ${s.bgCard}`}>
-                                <div className="flex justify-between items-start mb-2">
-                                    <div className={`font-mono text-xs ${s.textSub}`}>{log.time}</div>
-                                    <div className={`font-bold text-sm ${s.textMain}`}>{log.cashier}</div>
-                                </div>
-                                <div className={`font-bold ${s.textMain} text-lg mb-1`}>{log.type === 'delete' ? '訂單刪除' : '訂單修改'}</div>
-                                <div className="text-sm space-y-1">
-                                    <div className={s.textSub}>單號: <span className={s.textMain}>{log.order_id}</span></div>
-                                    <div className={s.textSub}>客戶: <span className={s.textMain}>{log.customer_name}</span></div>
-                                    <div className={s.textSub}>金額: <span className={s.textMain}>${log.total}</span></div>
-                                </div>
-                            </div>
-                        ))
-                    }
-                </div>
-            </div>
-        </div>
-    );
-};
+  const s = getStyles(isDarkMode);
+  const today = formatDateOnly(new Date());
+  const thirtyDaysAgo = getDaysAgo(30);
+  const [dateRange, setDateRange] = useState({ start: thirtyDaysAgo, end: today });
+  const [tab, setTab] = useState('delete');
+  const [selectedLog, setSelectedLog] = useState(null); // 新增 state 用來控制 Modal
 
+  const filteredLogs = logs.filter(log => {
+    const logDate = log.time.split(' ')[0];
+    return logDate >= dateRange.start && logDate <= dateRange.end && log.type === tab;
+  }).sort((a,b) => b.id - a.id);
+
+  return (
+    <div className={`flex flex-col h-full ${s.bgMain} transition-colors duration-300`}>
+      <Header title="操作紀錄" onMenuClick={onMenuClick} isDarkMode={isDarkMode} />
+      <div className="flex-1 overflow-y-auto p-4">
+        <div className={`${s.bgCard} p-3 rounded-xl shadow-sm mb-4 flex items-center gap-2`}>
+          <div className="flex-1"><label className={`text-[10px] block mb-1 ${s.textSub}`}>開始日期</label><input type="date" value={dateRange.start} onChange={e => setDateRange({...dateRange, start: e.target.value})} className={`w-full p-1.5 rounded-lg text-sm outline-none ${s.input}`} /></div>
+          <div className={s.textSub}>-</div>
+          <div className="flex-1"><label className={`text-[10px] block mb-1 ${s.textSub}`}>結束日期</label><input type="date" value={dateRange.end} onChange={e => setDateRange({...dateRange, end: e.target.value})} className={`w-full p-1.5 rounded-lg text-sm outline-none ${s.input}`} /></div>
+        </div>
+        <div className="flex gap-2 mb-4">
+          <button onClick={() => setTab('delete')} className={`flex-1 py-2 rounded-lg font-bold text-sm ${tab === 'delete' ? 'bg-red-500 text-white' : `${s.bgCard} ${s.textSub}`}`}>刪除紀錄</button>
+          <button onClick={() => setTab('modify')} className={`flex-1 py-2 rounded-lg font-bold text-sm ${tab === 'modify' ? 'bg-orange-500 text-white' : `${s.bgCard} ${s.textSub}`}`}>修改紀錄</button>
+        </div>
+        <div className="space-y-3">
+          {filteredLogs.length === 0 ? <div className={`text-center py-10 ${s.textSub}`}>無紀錄</div> : 
+            filteredLogs.map(log => (
+              <div 
+                key={log.id} 
+                // 如果有 original_data 則允許點擊
+                onClick={() => log.original_data && setSelectedLog(log)}
+                className={`p-4 rounded-xl border ${s.bgCard} ${log.original_data ? 'cursor-pointer hover:border-blue-400 active:scale-[0.99] transition' : ''}`}
+              >
+                <div className="flex justify-between items-start mb-2">
+                  <div className={`font-mono text-xs ${s.textSub}`}>{log.time}</div>
+                  <div className={`font-bold text-sm ${s.textMain}`}>{log.cashier}</div>
+                </div>
+                <div className="flex justify-between items-center mb-1">
+                   <div className={`font-bold ${s.textMain} text-lg`}>{log.type === 'delete' ? '訂單刪除' : '訂單修改'}</div>
+                   {log.original_data && <div className="text-[10px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full flex items-center gap-1"><Eye size={10}/> 查看原單</div>}
+                </div>
+                <div className="text-sm space-y-1">
+                  <div className={s.textSub}>單號: <span className={s.textMain}>{log.order_id}</span></div>
+                  <div className={s.textSub}>客戶: <span className={s.textMain}>{log.customer_name}</span></div>
+                  <div className={s.textSub}>金額: <span className={s.textMain}>${log.total}</span></div>
+                  {log.details && <div className="text-xs text-orange-500 mt-2 font-bold">{log.details}</div>}
+                </div>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+      {/* 呼叫新模態框 */}
+      <LogDetailModal isOpen={!!selectedLog} onClose={() => setSelectedLog(null)} log={selectedLog} isDarkMode={isDarkMode} />
+    </div>
+  );
+};
 const CustomerHistoryView = ({ viewingCustomer, orders, setView, isDarkMode, setSelectedReceipt }) => {
     const s = getStyles(isDarkMode);
     const customerOrders = orders.filter(o => o.customer_id === viewingCustomer.id).sort((a,b) => new Date(b.date) - new Date(a.date));
@@ -1094,20 +1147,7 @@ const App = () => {
   useEffect(() => { localStorage.setItem('pos_logs', JSON.stringify(logs)); }, [logs]);
 
   // Actions
-  const addLog = (type, orderId, total, method, customerName, details = '') => {
-      const newLog = {
-          id: Date.now(),
-          type, // 'delete' | 'modify'
-          time: formatDateTime(new Date()),
-          cashier: currentUser?.name || 'System',
-          order_id: orderId,
-          total,
-          method,
-          customer_name: customerName,
-          details
-      };
-      setLogs(prev => [newLog, ...prev]);
-  };
+ const addLog = (type, orderId, total, method, customerName, details = '', originalData = null) => { const newLog = { id: Date.now(), type, // 'delete' | 'modify' time: formatDateTime(new Date()), cashier: currentUser?.name || 'System', order_id: orderId, total, method, customer_name: customerName, details, original_data: originalData // 新增：保存原始訂單物件 }; setLogs(prev => [newLog, ...prev]); };
 
   const handleBackupRestore = (file) => {
       const reader = new FileReader();
@@ -1147,20 +1187,7 @@ const App = () => {
       exportToJson(backupData, `POS_Backup_${formatDateOnly(new Date())}`);
   };
 
-  const onEditOrder = (oldOrder, newItems) => {
-      const newTotal = newItems.reduce((sum, i) => sum + (i.price * i.qty), 0);
-      // Update Order
-      const updatedOrders = orders.map(o => o.order_id === oldOrder.order_id ? { ...o, items: newItems, total: newTotal } : o);
-      setOrders(updatedOrders);
-      
-      // Update Balance if tab
-      if (oldOrder.method === 'tab') {
-          const diff = newTotal - oldOrder.total;
-          setCustomers(customers.map(c => c.id === oldOrder.customer_id ? { ...c, balance: c.balance + diff } : c));
-      }
-      
-      addLog('modify', oldOrder.order_id, newTotal, oldOrder.method, oldOrder.customer_name, `原金額: $${oldOrder.total}`);
-  };
+const onEditOrder = (oldOrder, newItems) => { const newTotal = newItems.reduce((sum, i) => sum + (i.price * i.qty), 0); // Update Order const updatedOrders = orders.map(o => o.order_id === oldOrder.order_id ? { ...o, items: newItems, total: newTotal } : o); setOrders(updatedOrders); // Update Balance if tab if (oldOrder.method === 'tab') { const diff = newTotal - oldOrder.total; setCustomers(customers.map(c => c.id === oldOrder.customer_id ? { ...c, balance: c.balance + diff } : c)); } // 關鍵修改：將 oldOrder 作為最後一個參數傳入 addLog('modify', oldOrder.order_id, newTotal, oldOrder.method, oldOrder.customer_name, `原金額: $${oldOrder.total} ⮕ 新金額: $${newTotal}`, oldOrder); };
 
   const onDeleteOrder = (order) => {
       const updatedOrders = orders.map(o => o.order_id === order.order_id ? { ...o, status: 'deleted' } : o);
