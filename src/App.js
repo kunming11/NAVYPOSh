@@ -9,7 +9,8 @@ import {
   RefreshCw, Download, Upload, FileSpreadsheet, Lock, ShieldCheck,
   Settings, Moon, Sun, LayoutGrid, List, UserCog, User,
   TrendingUp, CreditCard, DollarSign as DollarIcon, Building2,
-  FileText as FileTextIcon, Eye, Tags, CheckSquare, Square, ListChecks, Check, History, BarChart2, Activity
+  FileText as FileTextIcon, Eye, Tags, CheckSquare, Square, ListChecks, Check, History, BarChart2, Activity,
+  ClipboardList
 } from 'lucide-react';
 
 // --- 工具函數 ---
@@ -93,42 +94,96 @@ const parseCSV = (text) => {
   return result;
 };
 
-// 簡單的 SVG 圖表組件
-const SimpleChart = ({ data, type, color }) => {
+// 簡單的 SVG 圖表組件 (支援 直方圖 Bar 與 面積圖 Area)
+const SimpleChart = ({ data, type, color, isDarkMode }) => {
     if (!data || data.length === 0) return <div className="h-64 flex items-center justify-center text-slate-400">無數據</div>;
     
     const maxVal = Math.max(...data.map(d => d.value), 1);
+    const count = data.length;
+    
+    // Area Chart Path Generator
+    const getAreaPath = () => {
+        if (count < 2) return '';
+        let path = `M 0,100 `; // Start bottom-left
+        data.forEach((d, i) => {
+            const x = (i / (count - 1)) * 100;
+            const y = 100 - (d.value / maxVal) * 100;
+            path += `L ${x},${y} `;
+        });
+        path += `L 100,100 Z`; // Close path
+        return path;
+    };
+
+    // Line Path for Area Chart Top
+    const getLinePath = () => {
+        if (count < 2) return '';
+        let path = '';
+        data.forEach((d, i) => {
+            const x = (i / (count - 1)) * 100;
+            const y = 100 - (d.value / maxVal) * 100;
+            path += `${i===0 ? 'M' : 'L'} ${x},${y} `;
+        });
+        return path;
+    };
     
     return (
-        <div className="h-64 w-full flex items-end justify-between gap-1 pt-4 pb-6 relative">
-            <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-20">
+        <div className="h-64 w-full flex items-end justify-between gap-1 pt-8 pb-6 relative select-none">
+            {/* 網格線 */}
+            <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-20 z-0">
+                <div className="border-t border-slate-500 w-full h-0"></div>
                 <div className="border-t border-slate-500 w-full h-0"></div>
                 <div className="border-t border-slate-500 w-full h-0"></div>
                 <div className="border-t border-slate-500 w-full h-0"></div>
             </div>
 
-            {data.map((d, i) => {
-                const barHeight = (d.value / maxVal) * 100;
-                return (
-                    <div key={i} className="flex-1 flex flex-col justify-end items-center group relative h-full">
-                        <div className="absolute -top-8 bg-slate-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10 whitespace-nowrap">
-                            {d.label}: ${d.value}
+            {type === 'bar' ? (
+                // 直方圖模式
+                data.map((d, i) => {
+                    const barHeight = (d.value / maxVal) * 100;
+                    return (
+                        <div key={i} className="flex-1 flex flex-col justify-end items-center group relative h-full z-10">
+                            <div className={`absolute -top-8 ${isDarkMode ? 'bg-slate-700' : 'bg-slate-800'} text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-lg`}>
+                                {d.label}: ${d.value}
+                            </div>
+                            <div 
+                                style={{ height: `${barHeight}%` }} 
+                                className={`w-full max-w-[40px] min-h-[2px] rounded-t-sm transition-all duration-500 ${color} hover:opacity-80`}
+                            ></div>
+                            <div className="text-[9px] text-slate-400 mt-2 truncate w-full text-center absolute -bottom-4">{d.label}</div>
                         </div>
-                        {type === 'bar' ? (
-                            <div 
-                                style={{ height: `${barHeight}%` }} 
-                                className={`w-full max-w-[40px] rounded-t-sm transition-all duration-500 ${color}`}
-                            ></div>
-                        ) : (
-                            <div 
-                                style={{ height: `${barHeight}%` }} 
-                                className={`w-full transition-all duration-500 ${color} opacity-70`}
-                            ></div>
-                        )}
-                        <div className="text-[10px] text-slate-400 mt-2 truncate w-full text-center">{d.label}</div>
-                    </div>
-                )
-            })}
+                    )
+                })
+            ) : (
+                // 面積圖模式 (使用 SVG)
+                <div className="absolute inset-0 z-10 flex items-end">
+                    <svg className="w-full h-full" preserveAspectRatio="none" viewBox="0 0 100 100">
+                        <defs>
+                            <linearGradient id="chartGradient" x1="0" x2="0" y1="0" y2="1">
+                                <stop offset="0%" stopColor="currentColor" stopOpacity="0.5" className={color.replace('bg-', 'text-')} />
+                                <stop offset="100%" stopColor="currentColor" stopOpacity="0" className={color.replace('bg-', 'text-')} />
+                            </linearGradient>
+                        </defs>
+                        <path d={getAreaPath()} fill="url(#chartGradient)" className="transition-all duration-500" />
+                        <path d={getLinePath()} fill="none" stroke="currentColor" strokeWidth="0.5" className={`${color.replace('bg-', 'text-')} transition-all duration-500`} />
+                    </svg>
+                    {/* Hover Points for Area Chart */}
+                    {data.map((d, i) => (
+                         <div 
+                            key={i} 
+                            className="absolute w-2 h-full flex flex-col justify-end items-center group"
+                            style={{ left: `${(i / (count - 1)) * 100}%`, transform: 'translateX(-50%)' }}
+                         >
+                            <div className={`absolute -top-6 ${isDarkMode ? 'bg-slate-700' : 'bg-slate-800'} text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-lg z-20`}>
+                                {d.label}: ${d.value}
+                            </div>
+                            <div className={`w-2 h-2 rounded-full ${color} opacity-0 group-hover:opacity-100 mb-[${(d.value / maxVal) * 100}%] transition-all`} 
+                                 style={{ marginBottom: `${(d.value / maxVal) * 200}px` }} 
+                            />
+                             <div className="text-[9px] text-slate-400 mt-2 truncate w-12 text-center absolute -bottom-4">{d.label}</div>
+                         </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 };
@@ -176,7 +231,8 @@ const getStyles = (isDarkMode) => ({
   selected: isDarkMode ? 'bg-blue-900/40 border-blue-500' : 'bg-blue-50 border-blue-400',
 });
 
-// --- 獨立 UI 元件 ---
+// --- 獨立 UI 元件 (Header, Sidebar, MenuItem, PinConfirmModal, DepartmentManagementModal, CashierManagementModal, CategoryManagementModal) ---
+// (為節省篇幅，這部分代碼與上一版相同，請保留原有的實作)
 
 const Header = ({ title, rightElement, onMenuClick, isDarkMode }) => {
   const s = getStyles(isDarkMode);
@@ -253,8 +309,6 @@ const MenuItem = ({ icon, label, onClick, active, isDarkMode }) => (
     <span className="font-medium text-lg">{label}</span>
   </button>
 );
-
-// --- 彈窗組件 ---
 
 const PinConfirmModal = ({ isOpen, onClose, onConfirm, currentUser, isDarkMode, message }) => {
     const s = getStyles(isDarkMode);
@@ -416,8 +470,15 @@ const CustomerSelectView = ({ customers, setCustomers, departments, setDepartmen
     const handleBatchDeleteClick = () => { if (selectedIds.length === 0) return; setDeleteTargetId('BATCH'); setIsPinModalOpen(true); };
     const executeDelete = () => { if (deleteTargetId === 'BATCH') { setCustomers(customers.filter(c => !selectedIds.includes(c.id))); setIsBatchMode(false); } else { setCustomers(customers.filter(c => c.id !== deleteTargetId)); } setDeleteTargetId(null); };
     const handleViewHistory = (customer, e) => { e.stopPropagation(); setViewingCustomer(customer); setView('customer_history'); };
-    const handleImport = (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (evt) => { try { const parsedData = parseCSV(evt.target.result); if(parsedData.length > 0 && (!parsedData[0].name || !parsedData[0].dept)) { alert('CSV 格式錯誤'); return; } const newCustomers = parsedData.map((c, i) => ({ id: c.id || `C${Date.now()}-${i}`, name: c.name, dept: c.dept, balance: parseInt(c.balance) || 0 })); setCustomers([...customers, ...newCustomers]); alert(`成功匯入`); } catch (err) { alert('匯入失敗'); } }; reader.readAsText(file); e.target.value = ''; };
-    return ( <div className={`flex flex-col h-full ${s.bgMain} transition-colors duration-300`}> <Header title={isBatchMode ? `已選取 ${selectedIds.length} 人` : "選擇人員"} onMenuClick={onMenuClick} isDarkMode={isDarkMode} rightElement={ <div className="flex gap-2"> {!isBatchMode && ( <> <button onClick={() => setIsDeptModalOpen(true)} className={`p-2 rounded-full ${s.textSub} ${s.header} hover:text-blue-500`}><Building2 size={20} /></button> <button onClick={() => exportToCSV(customers, 'crew_export')} className={`p-2 rounded-full ${s.textSub} ${s.header}`}><Download size={20} /></button> <button onClick={() => fileInputRef.current.click()} className={`p-2 rounded-full ${s.textSub} ${s.header}`}><Upload size={20} /></button> <input type="file" accept=".csv" ref={fileInputRef} onChange={handleImport} className="hidden" /> </> )} <button onClick={() => setIsBatchMode(!isBatchMode)} className={`p-2 rounded-full ${isBatchMode ? 'bg-blue-100 text-blue-600' : `${s.textSub} ${s.header}`}`} title="批次管理"> <ListChecks size={20} /> </button> {!isBatchMode && <button onClick={openAdd} className="p-2 bg-blue-600 text-white rounded-full"><Plus size={20} /></button>} </div> } /> <div className={`${s.header} px-4 pb-2 transition-colors duration-300`}> <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide"> <button onClick={() => setDeptFilter('全部')} className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap ${deptFilter === '全部' ? 'bg-blue-600 text-white' : `${s.bgMain} ${s.textSub}`}`}>全部</button> {departments.map(dept => ( <button key={dept} onClick={() => setDeptFilter(dept)} className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap ${deptFilter === dept ? 'bg-blue-600 text-white' : `${s.bgMain} ${s.textSub}`}`}>{dept}</button> ))} </div> </div> <div className="flex-1 overflow-y-auto p-4 space-y-3 pb-20"> {filtered.map(c => ( <div key={c.id} onClick={(e) => handleItemClick(c, e)} className={`w-full p-4 rounded-xl shadow-sm border flex items-center justify-between active:scale-[0.98] transition cursor-pointer group ${s.bgCard} ${s.hover} ${selectedIds.includes(c.id) ? s.selected : ''}`}> <div className="flex items-center gap-4"> {isBatchMode && ( <div className={`w-6 h-6 rounded border flex items-center justify-center ${selectedIds.includes(c.id) ? 'bg-blue-600 border-blue-600' : 'border-slate-400'}`}> {selectedIds.includes(c.id) && <Check size={16} className="text-white" />} </div> )} <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white ${['指揮部','輪機部','補給部','戰系部'].includes(c.dept)? 'bg-blue-500' : 'bg-slate-400'}`}>{c.dept?.[0] || '?'}</div> <div className="text-left"><div className={`font-bold text-lg ${s.textMain}`}>{c.name}</div><div className={`text-sm ${s.textSub}`}>{c.dept || '無部門'}</div></div> </div> {!isBatchMode && ( <div className="flex items-center gap-3"> <button onClick={(e) => handleViewHistory(c, e)} className={`p-2 rounded-full ${s.textSub} hover:bg-slate-200 hover:text-blue-600 transition`} title="檢視歷史"><Eye size={18} /></button> <button onClick={(e) => openEdit(c, e)} className={`p-2 rounded-full ${s.textSub} hover:bg-slate-200 hover:text-blue-600 transition`}><Edit3 size={18} /></button> <button onClick={(e) => handleDeleteClick(c.id, e)} className={`p-2 rounded-full ${s.textSub} hover:bg-red-100 hover:text-red-600 transition`}><Trash2 size={18} /></button> </div> )} </div> ))} </div> {isBatchMode && selectedIds.length > 0 && ( <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-4 bg-white shadow-xl p-2 rounded-full border border-slate-200 animate-in slide-in-from-bottom"> <button onClick={handleBatchDeleteClick} className="flex items-center gap-2 bg-red-600 text-white px-6 py-3 rounded-full font-bold shadow-md hover:bg-red-700 transition"> <Trash2 size={20} /> 刪除 ({selectedIds.length}) </button> </div> )} {isAddEditOpen && ( <div className="absolute inset-0 bg-black/50 z-50 flex items-center justify-center p-4"> <div className={`${s.bgCard} rounded-2xl w-full max-w-sm p-6 shadow-2xl`}> <h3 className={`text-xl font-bold mb-4 ${s.textMain}`}>{editForm ? '編輯人員' : '新增人員'}</h3> <div className="space-y-3"> <div><label className={`text-xs block mb-1 ${s.textSub}`}>姓名</label><input value={customerForm.name} onChange={e=>setCustomerForm({...customerForm, name: e.target.value})} className={`w-full p-3 rounded-lg outline-none ${s.input}`} /></div> <div><label className={`text-xs block mb-1 ${s.textSub}`}>部門</label><select value={customerForm.dept} onChange={e=>setCustomerForm({...customerForm, dept: e.target.value})} className={`w-full p-3 rounded-lg outline-none appearance-none ${s.input}`}><option value="">請選擇部門</option>{departments.map(d => <option key={d} value={d}>{d}</option>)}</select></div> </div> <div className="flex gap-3 mt-6"><button onClick={() => setIsAddEditOpen(false)} className={`flex-1 py-3 rounded-xl font-bold ${isDarkMode ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-600'}`}>取消</button><button onClick={handleSave} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-md">儲存</button></div> </div> </div> )} <PinConfirmModal isOpen={isPinModalOpen} onClose={() => setIsPinModalOpen(false)} onConfirm={executeDelete} currentUser={currentUser} isDarkMode={isDarkMode} message={deleteTargetId === 'BATCH' ? `確定要刪除這 ${selectedIds.length} 位人員嗎？` : undefined} /> <DepartmentManagementModal isOpen={isDeptModalOpen} onClose={() => setIsDeptModalOpen(false)} departments={departments} setDepartments={setDepartments} customers={customers} setCustomers={setCustomers} isDarkMode={isDarkMode} /> </div> );
+    const handleImport = (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (evt) => { try { const parsedData = parseCSV(evt.target.result); if(parsedData.length > 0 && !parsedData[0].name) { alert('CSV 格式錯誤'); return; } const newCustomers = parsedData.map((c, i) => ({ id: c.id || `C${Date.now()}-${i}`, name: c.name, dept: c.dept, balance: parseInt(c.balance) || 0 })); setCustomers([...customers, ...newCustomers]); alert(`成功匯入`); } catch (err) { alert('匯入失敗'); } }; reader.readAsText(file); e.target.value = ''; };
+    
+    // Modal Close Handler
+    const handleModalClose = () => {
+        setIsPinModalOpen(false);
+        setDeleteTargetId(null);
+    };
+
+    return ( <div className={`flex flex-col h-full ${s.bgMain} transition-colors duration-300`}> <Header title={isBatchMode ? `已選取 ${selectedIds.length} 人` : "選擇人員"} onMenuClick={onMenuClick} isDarkMode={isDarkMode} rightElement={ <div className="flex gap-2"> {!isBatchMode && ( <> <button onClick={() => setIsDeptModalOpen(true)} className={`p-2 rounded-full ${s.textSub} ${s.header} hover:text-blue-500`}><Building2 size={20} /></button> <button onClick={() => exportToCSV(customers, 'crew_export')} className={`p-2 rounded-full ${s.textSub} ${s.header}`}><Download size={20} /></button> <button onClick={() => fileInputRef.current.click()} className={`p-2 rounded-full ${s.textSub} ${s.header}`}><Upload size={20} /></button> <input type="file" accept=".csv" ref={fileInputRef} onChange={handleImport} className="hidden" /> </> )} <button onClick={() => setIsBatchMode(!isBatchMode)} className={`p-2 rounded-full ${isBatchMode ? 'bg-blue-100 text-blue-600' : `${s.textSub} ${s.header}`}`} title="批次管理"> <ListChecks size={20} /> </button> {!isBatchMode && <button onClick={openAdd} className="p-2 bg-blue-600 text-white rounded-full"><Plus size={20} /></button>} </div> } /> <div className={`${s.header} px-4 pb-2 transition-colors duration-300`}> <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide"> <button onClick={() => setDeptFilter('全部')} className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap ${deptFilter === '全部' ? 'bg-blue-600 text-white' : `${s.bgMain} ${s.textSub}`}`}>全部</button> {departments.map(dept => ( <button key={dept} onClick={() => setDeptFilter(dept)} className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap ${deptFilter === dept ? 'bg-blue-600 text-white' : `${s.bgMain} ${s.textSub}`}`}>{dept}</button> ))} </div> </div> <div className="flex-1 overflow-y-auto p-4 space-y-3 pb-20"> {filtered.map(c => ( <div key={c.id} onClick={(e) => handleItemClick(c, e)} className={`w-full p-4 rounded-xl shadow-sm border flex items-center justify-between active:scale-[0.98] transition cursor-pointer group ${s.bgCard} ${s.hover} ${selectedIds.includes(c.id) ? s.selected : ''}`}> <div className="flex items-center gap-4"> {isBatchMode && ( <div className={`w-6 h-6 rounded border flex items-center justify-center ${selectedIds.includes(c.id) ? 'bg-blue-600 border-blue-600' : 'border-slate-400'}`}> {selectedIds.includes(c.id) && <Check size={16} className="text-white" />} </div> )} <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white ${['指揮部','輪機部','補給部','戰系部'].includes(c.dept)? 'bg-blue-500' : 'bg-slate-400'}`}>{c.dept?.[0] || '?'}</div> <div className="text-left"><div className={`font-bold text-lg ${s.textMain}`}>{c.name}</div><div className={`text-sm ${s.textSub}`}>{c.dept || '無部門'}</div></div> </div> {!isBatchMode && ( <div className="flex items-center gap-3"> <button onClick={(e) => handleViewHistory(c, e)} className={`p-2 rounded-full ${s.textSub} hover:bg-slate-200 hover:text-blue-600 transition`} title="檢視歷史"><Eye size={18} /></button> <button onClick={(e) => openEdit(c, e)} className={`p-2 rounded-full ${s.textSub} hover:bg-slate-200 hover:text-blue-600 transition`}><Edit3 size={18} /></button> <button onClick={(e) => handleDeleteClick(c.id, e)} className={`p-2 rounded-full ${s.textSub} hover:bg-red-100 hover:text-red-600 transition`}><Trash2 size={18} /></button> </div> )} </div> ))} </div> {isBatchMode && selectedIds.length > 0 && ( <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-4 bg-white shadow-xl p-2 rounded-full border border-slate-200 animate-in slide-in-from-bottom"> <button onClick={handleBatchDeleteClick} className="flex items-center gap-2 bg-red-600 text-white px-6 py-3 rounded-full font-bold shadow-md hover:bg-red-700 transition"> <Trash2 size={20} /> 刪除 ({selectedIds.length}) </button> </div> )} {isAddEditOpen && ( <div className="absolute inset-0 bg-black/50 z-50 flex items-center justify-center p-4"> <div className={`${s.bgCard} rounded-2xl w-full max-w-sm p-6 shadow-2xl`}> <h3 className={`text-xl font-bold mb-4 ${s.textMain}`}>{editForm ? '編輯人員' : '新增人員'}</h3> <div className="space-y-3"> <div><label className={`text-xs block mb-1 ${s.textSub}`}>姓名</label><input value={customerForm.name} onChange={e=>setCustomerForm({...customerForm, name: e.target.value})} className={`w-full p-3 rounded-lg outline-none ${s.input}`} /></div> <div><label className={`text-xs block mb-1 ${s.textSub}`}>部門</label><select value={customerForm.dept} onChange={e=>setCustomerForm({...customerForm, dept: e.target.value})} className={`w-full p-3 rounded-lg outline-none appearance-none ${s.input}`}><option value="">請選擇部門</option>{departments.map(d => <option key={d} value={d}>{d}</option>)}</select></div> </div> <div className="flex gap-3 mt-6"><button onClick={() => setIsAddEditOpen(false)} className={`flex-1 py-3 rounded-xl font-bold ${isDarkMode ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-600'}`}>取消</button><button onClick={handleSave} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-md">儲存</button></div> </div> </div> )} <PinConfirmModal isOpen={isPinModalOpen} onClose={handleModalClose} onConfirm={executeDelete} currentUser={currentUser} isDarkMode={isDarkMode} message={deleteTargetId === 'BATCH' ? `確定要刪除這 ${selectedIds.length} 位人員嗎？` : '確定要刪除此位人員嗎？'} /> <DepartmentManagementModal isOpen={isDeptModalOpen} onClose={() => setIsDeptModalOpen(false)} departments={departments} setDepartments={setDepartments} customers={customers} setCustomers={setCustomers} isDarkMode={isDarkMode} /> </div> );
 };
 
 const POSView = ({ activeCustomer, setView, products, categories, cart, addToCart, updateCartQty, removeFromCart, onMenuClick, isDarkMode, layoutMode }) => {
@@ -432,15 +493,122 @@ const PaymentView = ({ cart, activeCustomer, processPayment, setView, isDarkMode
 const ReceiptListView = ({ orders, setSelectedReceipt, setView, onMenuClick, isDarkMode }) => { const s = getStyles(isDarkMode); const [isRefreshing, setIsRefreshing] = useState(false); const handleRefresh = () => { setIsRefreshing(true); setTimeout(() => setIsRefreshing(false), 1000); }; const groupedOrders = useMemo(() => { const groups = {}; orders.forEach(order => { const dateKey = order.date.split(' ')[0]; if (!groups[dateKey]) groups[dateKey] = []; groups[dateKey].push(order); }); return Object.entries(groups).sort((a, b) => new Date(b[0]) - new Date(a[0])); }, [orders]);
     return ( <div className={`flex flex-col h-full ${s.bgMain} transition-colors duration-300`}> <Header title="歷史收據" onMenuClick={onMenuClick} isDarkMode={isDarkMode} rightElement={<button onClick={handleRefresh} className={`p-2 rounded-full ${s.textSub} ${s.hover} ${isRefreshing ? 'animate-spin' : ''}`}><RefreshCw size={20} /></button>} /> <div className="flex-1 overflow-y-auto p-4 space-y-4"> {groupedOrders.map(([date, dayOrders]) => ( <div key={date}> <div className={`text-xs font-bold mb-2 ml-1 inline-block px-2 py-1 rounded ${isDarkMode ? 'bg-slate-800 text-slate-400' : 'bg-slate-200/50 text-slate-500'}`}>{date}</div> <div className="space-y-2"> {dayOrders.map((order) => ( <button key={order.order_id} onClick={() => { setSelectedReceipt(order); setView('receipt_detail'); }} className={`w-full p-4 rounded-xl shadow-sm border flex justify-between items-center ${s.bgCard} ${s.hover}`}> <div className="flex items-center gap-3"> <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white ${order.method==='cash'?'bg-green-500':'bg-orange-500'}`}>{order.method==='cash'?<DollarSign size={18}/>:<FileText size={18}/>}</div> <div className="text-left"> <div className={`font-bold ${s.textMain}`}>{order.customer_name} {order.status==='refunded'&&<span className="text-xs text-red-500 bg-red-100 px-1 rounded ml-1">退款</span>} {order.status==='deleted'&&<span className="text-xs text-gray-500 bg-gray-200 px-1 rounded ml-1">刪除</span>}</div> <div className={`text-xs ${s.textSub}`}>{order.date.split(' ')[1]}</div> </div> </div> <div className="font-bold text-lg text-blue-500">${order.total}</div> </button> ))} </div> </div> ))} </div> </div> );
 };
-const ReceiptDetailView = ({ selectedReceipt, processRefund, setView, onEditOrder, onDeleteOrder, isDarkMode, currentUser }) => { const s = getStyles(isDarkMode); const [isEditMode, setIsEditMode] = useState(false); const [editedItems, setEditedItems] = useState([]); const [isPinModalOpen, setIsPinModalOpen] = useState(false); const [actionType, setActionType] = useState(null); 
-    useEffect(() => { if (selectedReceipt) setEditedItems(JSON.parse(JSON.stringify(selectedReceipt.items))); }, [selectedReceipt]);
+
+// 重構：ReceiptDetailView (支援修改與刪除)
+const ReceiptDetailView = ({ selectedReceipt, processRefund, setView, onEditOrder, onDeleteOrder, isDarkMode, currentUser }) => {
+    const s = getStyles(isDarkMode);
+    const [isEditMode, setIsEditMode] = useState(false);
+    const [editedItems, setEditedItems] = useState([]);
+    const [isPinModalOpen, setIsPinModalOpen] = useState(false);
+    const [actionType, setActionType] = useState(null); // 'edit' or 'delete'
+
+    useEffect(() => {
+        if (selectedReceipt) setEditedItems(JSON.parse(JSON.stringify(selectedReceipt.items)));
+    }, [selectedReceipt]);
+
     if (!selectedReceipt) return null;
-    const handleQtyChange = (idx, delta) => { const newItems = [...editedItems]; newItems[idx].qty = Math.max(0, newItems[idx].qty + delta); setEditedItems(newItems); };
-    const handleConfirmAction = () => { if (actionType === 'edit') { onEditOrder(selectedReceipt, editedItems); setIsEditMode(false); } else if (actionType === 'delete') { onDeleteOrder(selectedReceipt); setView('receipt_list'); } setIsPinModalOpen(false); };
-    const triggerAction = (type) => { setActionType(type); setIsPinModalOpen(true); };
+
+    const handleQtyChange = (idx, delta) => {
+        const newItems = [...editedItems];
+        newItems[idx].qty = Math.max(0, newItems[idx].qty + delta);
+        setEditedItems(newItems);
+    };
+
+    const handleConfirmAction = () => {
+        if (actionType === 'edit') {
+            onEditOrder(selectedReceipt, editedItems);
+            setIsEditMode(false);
+        } else if (actionType === 'delete') {
+            onDeleteOrder(selectedReceipt);
+            setView('receipt_list');
+        }
+        setIsPinModalOpen(false);
+    };
+
+    const triggerAction = (type) => {
+        setActionType(type);
+        setIsPinModalOpen(true);
+    };
+
     const editedTotal = editedItems.reduce((sum, item) => sum + (item.price * item.qty), 0);
-    return ( <div className={`flex flex-col h-full ${s.bgMain} transition-colors duration-300`}> <div className={`${s.header} px-4 py-3 flex items-center gap-3 shadow-sm border-b`}> <button onClick={() => setView('receipt_list')} className={`p-2 -ml-2 ${s.textSub}`}><ChevronLeft /></button> <span className={`font-bold text-lg ${s.textMain}`}>交易詳情</span> </div> <div className="flex-1 overflow-y-auto p-4"> <div className={`${s.bgCard} p-6 rounded-2xl shadow-sm border relative overflow-hidden`}> {(selectedReceipt.status === 'refunded' || selectedReceipt.status === 'deleted') && <div className={`absolute top-5 right-5 border-2 px-2 font-bold -rotate-12 ${selectedReceipt.status === 'deleted' ? 'border-gray-500 text-gray-500' : 'border-red-500 text-red-500'}`}> {selectedReceipt.status === 'deleted' ? 'DELETED' : 'REFUNDED'} </div>} <div className="text-center border-b border-dashed border-slate-300 pb-4 mb-4"> <div className={`text-4xl font-bold ${s.textMain}`}> ${isEditMode ? editedTotal : selectedReceipt.total} </div> <div className={`text-sm mt-2 ${s.textSub}`}>{selectedReceipt.date}</div> </div> {isEditMode ? ( <div className="space-y-3"> {editedItems.map((item, idx) => ( <div key={idx} className="flex justify-between items-center"> <span className={s.textMain}>{item.name}</span> <div className="flex items-center gap-2"> <button onClick={() => handleQtyChange(idx, -1)} className={`p-1 rounded ${s.input}`}>-</button> <span className={`w-6 text-center ${s.textMain}`}>{item.qty}</span> <button onClick={() => handleQtyChange(idx, 1)} className={`p-1 rounded ${s.input}`}>+</button> </div> </div> ))} </div> ) : ( <div className="space-y-2"> {selectedReceipt.items.map((i, idx) => ( <div key={idx} className="flex justify-between text-sm"> <span className={s.textMain}>{i.name} x{i.qty}</span> <span className={s.textMain}>${i.price * i.qty}</span> </div> ))} </div> )} </div> {selectedReceipt.status === 'completed' && ( <div className="mt-6 flex gap-3"> {isEditMode ? ( <> <button onClick={() => setIsEditMode(false)} className={`flex-1 py-3 rounded-xl font-bold ${s.input}`}>取消</button> <button onClick={() => triggerAction('edit')} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-md">確認修改</button> </> ) : ( <> <button onClick={() => setIsEditMode(true)} className={`flex-1 py-3 border border-blue-500 text-blue-500 rounded-xl font-bold flex items-center justify-center gap-2`}> <Edit3 size={18} /> 修改 </button> <button onClick={() => triggerAction('delete')} className={`flex-1 py-3 border border-red-500 text-red-500 rounded-xl font-bold flex items-center justify-center gap-2`}> <Trash2 size={18} /> 刪除 </button> </> )} </div> )} </div> <PinConfirmModal isOpen={isPinModalOpen} onClose={() => setIsPinModalOpen(false)} onConfirm={handleConfirmAction} currentUser={currentUser} isDarkMode={isDarkMode} message={actionType === 'edit' ? '確定要修改此訂單嗎？' : '確定要刪除此訂單嗎？'} /> </div> );
+
+    return (
+        <div className={`flex flex-col h-full ${s.bgMain} transition-colors duration-300`}>
+            <div className={`${s.header} px-4 py-3 flex items-center gap-3 shadow-sm border-b`}>
+                <button onClick={() => setView('receipt_list')} className={`p-2 -ml-2 ${s.textSub}`}><ChevronLeft /></button>
+                <span className={`font-bold text-lg ${s.textMain}`}>交易詳情</span>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+                <div className={`${s.bgCard} p-6 rounded-2xl shadow-sm border relative overflow-hidden`}>
+                     {(selectedReceipt.status === 'refunded' || selectedReceipt.status === 'deleted') && 
+                        <div className={`absolute top-5 right-5 border-2 px-2 font-bold -rotate-12 ${selectedReceipt.status === 'deleted' ? 'border-gray-500 text-gray-500' : 'border-red-500 text-red-500'}`}>
+                            {selectedReceipt.status === 'deleted' ? 'DELETED' : 'REFUNDED'}
+                        </div>
+                     }
+                     <div className="text-center border-b border-dashed border-slate-300 pb-4 mb-4">
+                        <div className={`text-4xl font-bold ${s.textMain}`}>
+                            ${isEditMode ? editedTotal : selectedReceipt.total}
+                        </div>
+                        <div className={`text-sm mt-2 ${s.textSub}`}>{selectedReceipt.date}</div>
+                     </div>
+                     
+                     {isEditMode ? (
+                        <div className="space-y-3">
+                            {editedItems.map((item, idx) => (
+                                <div key={idx} className="flex justify-between items-center">
+                                    <span className={s.textMain}>{item.name}</span>
+                                    <div className="flex items-center gap-2">
+                                        <button onClick={() => handleQtyChange(idx, -1)} className={`p-1 rounded ${s.input}`}>-</button>
+                                        <span className={`w-6 text-center ${s.textMain}`}>{item.qty}</span>
+                                        <button onClick={() => handleQtyChange(idx, 1)} className={`p-1 rounded ${s.input}`}>+</button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                     ) : (
+                        <div className="space-y-2">
+                            {selectedReceipt.items.map((i, idx) => (
+                                <div key={idx} className="flex justify-between text-sm">
+                                    <span className={s.textMain}>{i.name} x{i.qty}</span>
+                                    <span className={s.textMain}>${i.price * i.qty}</span>
+                                </div>
+                            ))}
+                        </div>
+                     )}
+                </div>
+
+                {selectedReceipt.status === 'completed' && (
+                    <div className="mt-6 flex gap-3">
+                        {isEditMode ? (
+                            <>
+                                <button onClick={() => setIsEditMode(false)} className={`flex-1 py-3 rounded-xl font-bold ${s.input}`}>取消</button>
+                                <button onClick={() => triggerAction('edit')} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-md">確認修改</button>
+                            </>
+                        ) : (
+                            <>
+                                <button onClick={() => setIsEditMode(true)} className={`flex-1 py-3 border border-blue-500 text-blue-500 rounded-xl font-bold flex items-center justify-center gap-2`}>
+                                    <Edit3 size={18} /> 修改
+                                </button>
+                                <button onClick={() => triggerAction('delete')} className={`flex-1 py-3 border border-red-500 text-red-500 rounded-xl font-bold flex items-center justify-center gap-2`}>
+                                    <Trash2 size={18} /> 刪除
+                                </button>
+                            </>
+                        )}
+                    </div>
+                )}
+            </div>
+            <PinConfirmModal 
+                isOpen={isPinModalOpen} 
+                onClose={() => setIsPinModalOpen(false)} 
+                onConfirm={handleConfirmAction} 
+                currentUser={currentUser} 
+                isDarkMode={isDarkMode} 
+                message={actionType === 'edit' ? '確定要修改此訂單嗎？' : '確定要刪除此訂單嗎？'}
+            />
+        </div>
+    );
 };
+
 const ReceiptSuccessView = ({ activeCustomer, setView }) => ( <div className="h-full flex flex-col items-center justify-center bg-slate-50 p-6"> <div className="bg-white p-8 rounded-2xl shadow-lg w-full max-w-sm text-center"> <CheckCircle className="w-20 h-20 text-green-500 mx-auto mb-4" /> <h2 className="text-2xl font-bold text-slate-800 mb-6">交易完成</h2> <button onClick={() => setView('customer_select')} className="w-full bg-slate-200 text-slate-700 py-3 rounded-xl font-bold mb-3">回客戶列表</button> <button onClick={() => setView('pos')} className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold">繼續為 {activeCustomer?.name} 點餐</button> </div> </div> );
 const LoginView = ({ handleLoginCheck, isDarkMode }) => { const s = getStyles(isDarkMode); const [pin, setPin] = useState(''); const handleNumClick = (n) => { if(pin.length < 4) setPin(pin + n); }; const handleOK = () => { handleLoginCheck(pin); }; return ( <div className={`flex flex-col items-center justify-center h-full ${s.bgMain} ${s.textMain}`}> <div className="mb-6 p-4 bg-blue-600 rounded-full text-white shadow-lg shadow-blue-500/30"><Anchor size={48} /></div> <h1 className="text-2xl font-bold mb-8">艦艇服務台 POS</h1> <div className="w-64"> <div className={`text-center text-3xl py-4 mb-6 tracking-widest rounded-xl border ${s.input} ${isDarkMode ? 'border-slate-600' : 'border-slate-300'}`}>{pin.padEnd(4, '•')}</div> <div className="grid grid-cols-3 gap-3"> {[1,2,3,4,5,6,7,8,9].map(n => <button key={n} onClick={() => handleNumClick(n)} className={`h-16 rounded-lg text-xl font-bold transition ${isDarkMode ? 'bg-slate-700 hover:bg-slate-600' : 'bg-white hover:bg-slate-50 border border-slate-200'}`}>{n}</button>)} <button onClick={() => setPin('')} className="h-16 bg-red-500/10 text-red-500 rounded-lg font-bold">C</button> <button onClick={() => handleNumClick(0)} className={`h-16 rounded-lg font-bold ${isDarkMode ? 'bg-slate-700' : 'bg-white border border-slate-200'}`}>0</button> <button onClick={handleOK} className="h-16 bg-blue-600 text-white rounded-lg font-bold shadow-lg shadow-blue-500/30">OK</button> </div> </div> <p className={`mt-8 ${s.textSub} text-sm`}>請輸入 PIN 碼 (預設 1234)</p> </div> ); };
 const ChangePasswordView = ({ handlePasswordChange, isDarkMode }) => { const s = getStyles(isDarkMode); const [step, setStep] = useState(1); const [newPin, setNewPin] = useState(''); const [confirmPin, setConfirmPin] = useState(''); const [error, setError] = useState(''); const handleInput = (num) => { setError(''); if (step === 1 && newPin.length < 4) setNewPin(newPin + num); if (step === 2 && confirmPin.length < 4) setConfirmPin(confirmPin + num); }; const handleClear = () => { if (step === 1) setNewPin(''); else setConfirmPin(''); setError(''); }; const handleSubmit = () => { if (step === 1) { if (newPin.length < 4) { setError('請輸入 4 位數'); return; } setStep(2); } else { if (confirmPin !== newPin) { setError('密碼不相符'); setConfirmPin(''); return; } handlePasswordChange(newPin); } }; return ( <div className={`flex flex-col items-center justify-center h-full bg-blue-900 text-white`}> <div className="mb-6 p-4 bg-blue-800 rounded-full"><ShieldCheck size={48} /></div> <h1 className="text-2xl font-bold mb-2">安全性設定</h1> <p className="mb-8 text-blue-200">{step === 1 ? '請設定您的新 PIN 碼' : '請再次輸入以確認'}</p> <div className="w-64"> <div className="text-center text-3xl py-4 mb-6 tracking-widest bg-blue-800 rounded-xl border border-blue-700 shadow-inner">{(step === 1 ? newPin : confirmPin).padEnd(4, '•')}</div> {error && <div className="text-red-300 text-sm text-center mb-4 font-bold">{error}</div>} <div className="grid grid-cols-3 gap-3"> {[1,2,3,4,5,6,7,8,9].map(n => <button key={n} onClick={() => handleInput(n)} className="h-16 bg-blue-800 rounded-lg text-xl font-bold active:bg-blue-700 border border-blue-700/50">{n}</button>)} <button onClick={handleClear} className="h-16 bg-red-900/50 text-red-200 rounded-lg font-bold border border-red-900/30">C</button> <button onClick={() => handleInput(0)} className="h-16 bg-blue-800 rounded-lg font-bold border border-blue-700/50">0</button> <button onClick={handleSubmit} className="h-16 bg-green-600 rounded-lg font-bold shadow-lg active:bg-green-700">{step === 1 ? '下一步' : '確認'}</button> </div> </div> </div> ); };
@@ -498,6 +666,12 @@ const ItemsManageView = ({ products, setProducts, handleSaveProduct, categories,
         } else {
              // 這裡原本 ItemsManageView 沒做單筆刪除，如果要加可以在這
         }
+        setDeleteTargetId(null);
+    };
+    
+    // 關閉 Modal 時重置
+    const handleModalClose = () => {
+        setIsPinModalOpen(false);
         setDeleteTargetId(null);
     };
 
@@ -593,7 +767,7 @@ const ItemsManageView = ({ products, setProducts, handleSaveProduct, categories,
             {/* 批次刪除驗證 */}
             <PinConfirmModal 
                 isOpen={isPinModalOpen} 
-                onClose={() => setIsPinModalOpen(false)} 
+                onClose={handleModalClose} // 使用修正後的關閉函數
                 onConfirm={executeDelete} 
                 currentUser={currentUser} // 需要從上層傳入 currentUser
                 isDarkMode={isDarkMode} 
@@ -626,17 +800,17 @@ const DashboardView = ({ orders, customers, onMenuClick, isDarkMode }) => {
     const stats = useMemo(() => {
         const filteredOrders = orders.filter(o => {
             const orderDate = o.date.split(' ')[0]; // formatDateTime returns YYYY-MM-DD HH:mm:ss, split by space
-            return orderDate >= dateRange.start && orderDate <= dateRange.end;
+            return orderDate >= dateRange.start && orderDate <= dateRange.end && o.status !== 'deleted';
         });
 
         const receiptCount = filteredOrders.length;
         const salesTotal = filteredOrders.filter(o => o.status === 'completed').reduce((sum, o) => sum + o.total, 0);
-        const refundTotal = filteredOrders.filter(o => o.status === 'refunded').reduce((sum, o) => sum + o.total, 0);
-        const netRevenue = salesTotal - refundTotal;
-        // totalDebt removed
-
-        return { receiptCount, salesTotal, refundTotal, netRevenue };
-    }, [orders, customers, dateRange, isRefreshing]); 
+        
+        // 營收數據 (只計算 completed，不扣 deleted 因為 deleted 視為未發生，但 refunded 需扣除? 
+        // 根據需求：銷售總額(Gross), 所有收據(Count)。
+        
+        return { receiptCount, salesTotal };
+    }, [orders, dateRange]);
 
     // 圖表數據聚合
     const chartData = useMemo(() => {
@@ -689,7 +863,66 @@ const DashboardView = ({ orders, customers, onMenuClick, isDarkMode }) => {
         exportToCSV(flatData, `Receipts_${dateRange.start}_${dateRange.end}`);
     };
 
-    // 3. 匯出記帳清單 (TXT)
+    // 3. 匯出詳細清單 (階層式 TXT) - 新功能
+    const handleExportDetailedList = () => {
+        const filteredOrders = orders.filter(o => {
+            const orderDate = o.date.split(' ')[0];
+            return orderDate >= dateRange.start && orderDate <= dateRange.end && o.status === 'completed';
+        });
+
+        if (filteredOrders.length === 0) { alert('無資料'); return; }
+
+        // Grouping: Dept -> Customer -> Orders
+        const grouped = {};
+        
+        filteredOrders.forEach(o => {
+            const customer = customers.find(c => c.id === o.customer_id);
+            const dept = customer?.dept || '未知單位';
+            const name = o.customer_name;
+            
+            if (!grouped[dept]) grouped[dept] = {};
+            if (!grouped[dept][name]) grouped[dept][name] = [];
+            grouped[dept][name].push(o);
+        });
+
+        let text = `詳細銷售清單\n區間：${dateRange.start} ~ ${dateRange.end}\n製表時間：${new Date().toLocaleString()}\n`;
+        text += "================================================\n\n";
+
+        let grandTotal = 0;
+
+        // Sort Depts
+        Object.keys(grouped).sort().forEach(dept => {
+            text += `【單位：${dept}】\n`;
+            let deptTotal = 0;
+            
+            // Sort Names
+            Object.keys(grouped[dept]).sort().forEach(name => {
+                const userOrders = grouped[dept][name];
+                let userTotal = 0;
+                
+                text += `  ▼ ${name}\n`;
+                
+                userOrders.forEach(o => {
+                    const itemsStr = o.items.map(i => `${i.name}x${i.qty}`).join(', ');
+                    text += `    - ${o.date} | ${itemsStr} | $${o.total}\n`;
+                    userTotal += o.total;
+                });
+                
+                text += `    --------------------------------\n`;
+                text += `    ${name} 小計：$${userTotal}\n\n`;
+                deptTotal += userTotal;
+            });
+            
+            text += `  [ ${dept} 部門總計：$${deptTotal} ]\n`;
+            text += "================================================\n\n";
+            grandTotal += deptTotal;
+        });
+
+        text += `\n總銷售合計：$${grandTotal}\n`;
+        exportToText(text, `Detailed_List_${dateRange.start}_${dateRange.end}`);
+    };
+
+    // 4. 匯出記帳清單 (TXT)
     const handleExportTabList = () => {
         const filteredOrders = orders.filter(o => {
             const orderDate = o.date.split(' ')[0];
@@ -754,17 +987,23 @@ const DashboardView = ({ orders, customers, onMenuClick, isDarkMode }) => {
             />
             <div className="flex-1 overflow-y-auto p-4">
                 
+                {/* Date Filter */}
                 <div className={`${s.bgCard} p-3 rounded-xl shadow-sm mb-4 flex items-center gap-2`}>
-                    <div className="flex-1"><label className={`text-[10px] block mb-1 ${s.textSub}`}>開始日期</label><input type="date" value={dateRange.start} onChange={e => setDateRange({...dateRange, start: e.target.value})} className={`w-full p-1.5 rounded-lg text-sm outline-none ${s.input}`} /></div>
+                    <div className="flex-1"><label className={`text-[10px] block mb-1 ${s.textSub}`}>開始</label><input type="date" value={dateRange.start} onChange={e => setDateRange({...dateRange, start: e.target.value})} className={`w-full p-1.5 rounded-lg text-sm outline-none ${s.input}`} /></div>
                     <div className={s.textSub}>-</div>
-                    <div className="flex-1"><label className={`text-[10px] block mb-1 ${s.textSub}`}>結束日期</label><input type="date" value={dateRange.end} onChange={e => setDateRange({...dateRange, end: e.target.value})} className={`w-full p-1.5 rounded-lg text-sm outline-none ${s.input}`} /></div>
+                    <div className="flex-1"><label className={`text-[10px] block mb-1 ${s.textSub}`}>結束</label><input type="date" value={dateRange.end} onChange={e => setDateRange({...dateRange, end: e.target.value})} className={`w-full p-1.5 rounded-lg text-sm outline-none ${s.input}`} /></div>
                 </div>
 
+                {/* Metrics */}
                 <div className="grid grid-cols-2 gap-3 mb-6">
-                    <MetricCard title="所有收據" value={`${stats.receiptCount} 筆`} color={s.textMain} icon={FileText} />
-                    <MetricCard title="銷售總額" value={`$${stats.salesTotal}`} color="text-blue-500" icon={TrendingUp} />
-                    <MetricCard title="退款總額" value={`$${stats.refundTotal}`} color="text-red-500" icon={RotateCcw} />
-                    <MetricCard title="區間淨營收" value={`$${stats.netRevenue}`} color="text-green-500" icon={DollarIcon} />
+                    <div className={`${s.cardMetrics} p-4 rounded-xl shadow-sm border ${isDarkMode ? 'border-slate-700' : 'border-slate-100'}`}>
+                        <div className={`text-xs ${s.textSub} mb-1`}>銷售總額</div>
+                        <div className="text-2xl font-bold text-blue-500">${stats.salesTotal}</div>
+                    </div>
+                    <div className={`${s.cardMetrics} p-4 rounded-xl shadow-sm border ${isDarkMode ? 'border-slate-700' : 'border-slate-100'}`}>
+                        <div className={`text-xs ${s.textSub} mb-1`}>所有收據</div>
+                        <div className={`text-2xl font-bold ${s.textMain}`}>{stats.receiptCount}</div>
+                    </div>
                 </div>
 
                 {/* Chart Controls */}
@@ -784,27 +1023,23 @@ const DashboardView = ({ orders, customers, onMenuClick, isDarkMode }) => {
                     </div>
                     
                     {/* SVG Chart */}
-                    <SimpleChart data={chartData} type={chartType} color={isDarkMode ? 'bg-blue-500' : 'bg-blue-600'} />
+                    <SimpleChart data={chartData} type={chartType} color={isDarkMode ? 'bg-blue-500' : 'bg-blue-600'} isDarkMode={isDarkMode} />
                 </div>
 
+                {/* Exports */}
                 <div className={`${s.bgCard} p-4 rounded-xl shadow-sm space-y-3`}>
-                    <h3 className={`font-bold text-lg ${s.textMain} mb-2`}>報表匯出</h3>
-                    
-                    <div className="flex justify-between items-center p-3 border rounded-lg border-slate-100">
-                        <div>
-                            <div className={`font-bold ${s.textMain} flex items-center gap-2`}><FileSpreadsheet size={16}/> 收據明細 CSV</div>
-                            <div className={`text-xs ${s.textSub}`}>所有交易流水帳</div>
-                        </div>
-                        <button onClick={handleExportReport} className="bg-blue-600 text-white px-3 py-2 rounded-lg text-xs font-bold shadow active:scale-95">匯出 CSV</button>
-                    </div>
-
-                    <div className="flex justify-between items-center p-3 border rounded-lg border-slate-100">
-                        <div>
-                            <div className={`font-bold ${s.textMain} flex items-center gap-2`}><FileTextIcon size={16}/> 記帳人員清單 TXT</div>
-                            <div className={`text-xs ${s.textSub}`}>單位/人員結算單</div>
-                        </div>
-                        <button onClick={handleExportTabList} className="bg-orange-500 text-white px-3 py-2 rounded-lg text-xs font-bold shadow active:scale-95">匯出清單</button>
-                    </div>
+                    <h3 className={`font-bold ${s.textMain} mb-2`}>報表匯出</h3>
+                    <button onClick={handleExportReport} className="w-full bg-blue-600 text-white px-3 py-3 rounded-lg text-sm font-bold flex justify-between items-center shadow-sm">
+                        <span className="flex items-center gap-2"><FileSpreadsheet size={16}/> 收據明細 CSV</span> <Download size={16}/>
+                    </button>
+                    {/* Detailed List */}
+                    <button onClick={handleExportDetailedList} className="w-full bg-green-600 text-white px-3 py-3 rounded-lg text-sm font-bold flex justify-between items-center shadow-sm">
+                        <span className="flex items-center gap-2"><ClipboardList size={16}/> 詳細單位結算單 TXT</span> <Download size={16}/>
+                    </button>
+                    {/* Tab List */}
+                    <button onClick={handleExportTabList} className="w-full bg-orange-500 text-white px-3 py-3 rounded-lg text-sm font-bold flex justify-between items-center shadow-sm">
+                        <span className="flex items-center gap-2"><FileTextIcon size={16}/> 記帳清單 TXT</span> <Download size={16}/>
+                    </button>
                 </div>
             </div>
         </div>
@@ -822,39 +1057,15 @@ const App = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [layoutMode, setLayoutMode] = useState('grid');
   const [isCashierModalOpen, setIsCashierModalOpen] = useState(false);
-  const [viewingCustomer, setViewingCustomer] = useState(null); // 新增：正在查看歷史的客戶
+  const [viewingCustomer, setViewingCustomer] = useState(null);
 
-  // Lazy Initialization for LocalStorage
-  const [users, setUsers] = useState(() => {
-    const saved = localStorage.getItem('pos_users');
-    return saved ? JSON.parse(saved) : INITIAL_USERS;
-  });
-  
-  const [products, setProducts] = useState(() => {
-    const saved = localStorage.getItem('pos_products');
-    return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
-  });
-
-  const [customers, setCustomers] = useState(() => {
-    const saved = localStorage.getItem('pos_customers');
-    return saved ? JSON.parse(saved) : INITIAL_CUSTOMERS;
-  });
-
-  const [orders, setOrders] = useState(() => {
-    const saved = localStorage.getItem('pos_orders');
-    return saved ? JSON.parse(saved) : MOCK_HISTORY_ORDERS;
-  });
-
-  const [categories, setCategories] = useState(() => {
-    const saved = localStorage.getItem('pos_categories');
-    return saved ? JSON.parse(saved) : INITIAL_CATEGORIES;
-  });
-
-  const [departments, setDepartments] = useState(() => {
-    const saved = localStorage.getItem('pos_departments');
-    return saved ? JSON.parse(saved) : INITIAL_DEPARTMENTS;
-  });
-
+  // Lazy Initialization
+  const [users, setUsers] = useState(() => { const saved = localStorage.getItem('pos_users'); return saved ? JSON.parse(saved) : INITIAL_USERS; });
+  const [products, setProducts] = useState(() => { const saved = localStorage.getItem('pos_products'); return saved ? JSON.parse(saved) : INITIAL_PRODUCTS; });
+  const [customers, setCustomers] = useState(() => { const saved = localStorage.getItem('pos_customers'); return saved ? JSON.parse(saved) : INITIAL_CUSTOMERS; });
+  const [orders, setOrders] = useState(() => { const saved = localStorage.getItem('pos_orders'); return saved ? JSON.parse(saved) : MOCK_HISTORY_ORDERS; });
+  const [categories, setCategories] = useState(() => { const saved = localStorage.getItem('pos_categories'); return saved ? JSON.parse(saved) : INITIAL_CATEGORIES; });
+  const [departments, setDepartments] = useState(() => { const saved = localStorage.getItem('pos_departments'); return saved ? JSON.parse(saved) : INITIAL_DEPARTMENTS; });
   const [logs, setLogs] = useState(() => { const saved = localStorage.getItem('pos_logs'); return saved ? JSON.parse(saved) : MOCK_LOGS; }); // 新增 Logs State
 
   const [cart, setCart] = useState([]);
@@ -916,15 +1127,13 @@ const App = () => {
   const handlePasswordChange = (newPin) => { if (!tempUser) return; const updatedUsers = users.map(u => u.id === tempUser.id ? { ...u, pin: newPin, requireChange: false } : u); setUsers(updatedUsers); const loggedInUser = updatedUsers.find(u => u.id === tempUser.id); setCurrentUser(loggedInUser); setTempUser(null); setView('customer_select'); alert('密碼修改成功！'); };
   const navigateTo = (target) => { setIsMenuOpen(false); if (target === 'pos' && !activeCustomer) { setView('customer_select'); return; } setView(target); };
   
-  // 匯入歷史收據邏輯 (包含 items 格式的處理)
   const handleImportReceipts = (file) => { 
       const reader = new FileReader(); 
       reader.onload = (evt) => { 
           try { 
               const parsedData = parseCSV(evt.target.result); 
-              // 檢查關鍵欄位：收據號碼 or 訂單編號
               if (parsedData.length > 0 && (!parsedData[0]['收據號碼'] && !parsedData[0]['訂單編號'])) { 
-                  alert('CSV 格式錯誤，需包含"收據號碼"等欄位'); 
+                  alert('CSV 格式錯誤'); 
                   return; 
               } 
               const newOrders = parsedData.map((row, i) => ({ 
@@ -936,7 +1145,7 @@ const App = () => {
                   total: parseFloat(row['總計'] || row['銷售總額']) || 0, 
                   method: (row['付費方式'] === '現金' || row['付費方式'] === 'cash') ? 'cash' : 'tab', 
                   status: 'completed', 
-                  items: [] // 簡化處理：歷史匯入暫不還原 items 陣列，僅作金額統計
+                  items: [] 
               })); 
               setOrders([...orders, ...newOrders]); 
               alert(`成功匯入 ${newOrders.length} 筆歷史收據`); 
@@ -949,12 +1158,11 @@ const App = () => {
   const updateCartQty = (id, delta) => { const item = cart.find(i => i.id === id); if (!item) return; const newQty = item.qty + delta; if (newQty <= 0) setCart(cart.filter(i => i.id !== id)); else setCart(cart.map(i => i.id === id ? { ...i, qty: newQty } : i)); };
   const removeFromCart = (id) => { setCart(cart.filter(i => i.id !== id)); };
   
-  // 結帳邏輯 (使用簡單流水號 #0001，並修正日期格式)
   const processPayment = (method) => { 
       const nextId = String(orders.length + 1).padStart(4, '0');
       const newOrder = { 
           order_id: `#${nextId}`, 
-          date: formatDateTime(new Date()), // 使用標準化日期格式
+          date: formatDateTime(new Date()), 
           cashier: currentUser.name, 
           items: cart, 
           total: cart.reduce((sum, item) => sum + (item.price * item.qty), 0), 
@@ -970,7 +1178,6 @@ const App = () => {
       setView('receipt_success'); 
   };
 
-  const processRefund = (order) => { const updatedOrders = orders.map(o => o.order_id === order.order_id ? { ...o, status: 'refunded' } : o); setOrders(updatedOrders); if (order.method === 'tab') { setCustomers(customers.map(c => c.id === order.customer_id ? { ...c, balance: c.balance - order.total } : c)); } setSelectedReceipt({ ...order, status: 'refunded' }); };
   const handleSaveProduct = (productData) => { if (productData.category && !categories.includes(productData.category)) { setCategories([...categories, productData.category]); } if (productData.isNew) { const newProduct = { ...productData, id: `P${Date.now().toString().slice(-4)}`, stock: parseInt(productData.stock) || 0, price: parseInt(productData.price) || 0 }; delete newProduct.isNew; setProducts([...products, newProduct]); } else { setProducts(products.map(p => p.id === productData.id ? { ...productData, stock: parseInt(productData.stock) || 0, price: parseInt(productData.price) || 0 } : p)); } };
 
   return (
@@ -1004,7 +1211,6 @@ const App = () => {
       {view === 'login' && <LoginView handleLoginCheck={handleLoginCheck} isDarkMode={isDarkMode} />}
       {view === 'change_password' && <ChangePasswordView handlePasswordChange={handlePasswordChange} isDarkMode={isDarkMode} />}
       {view === 'settings' && <SettingsView isDarkMode={isDarkMode} setIsDarkMode={setIsDarkMode} layoutMode={layoutMode} setLayoutMode={setLayoutMode} onMenuClick={() => setIsMenuOpen(true)} onImportHistory={handleImportReceipts} />}
-      {/* 新增重置按鈕到設定頁面 (需稍微修改 SettingsView，但為了保持單檔簡潔，這裡僅透過 console 或隱藏方式觸發，或可視需求加入 UI) */}
       
       {view === 'customer_select' && (
         <CustomerSelectView 
@@ -1017,11 +1223,10 @@ const App = () => {
             onMenuClick={() => setIsMenuOpen(true)} 
             isDarkMode={isDarkMode} 
             currentUser={currentUser}
-            setViewingCustomer={setViewingCustomer} // 傳遞設定檢視客戶的函數
+            setViewingCustomer={setViewingCustomer}
         />
       )}
       
-      {/* 新增：客戶歷史收據視圖 */}
       {view === 'customer_history' && viewingCustomer && (
           <CustomerHistoryView 
             viewingCustomer={viewingCustomer} 
