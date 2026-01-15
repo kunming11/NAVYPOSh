@@ -49,11 +49,13 @@ import {
   FileText as FileTextIcon,
   Eye,
   Tags,
+  History,
+  BarChart2,
+  Activity,
 } from "lucide-react";
 
 // --- 工具函數 ---
 
-// 標準化日期格式 YYYY-MM-DD HH:mm:ss
 const formatDateTime = (date) => {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
@@ -64,7 +66,73 @@ const formatDateTime = (date) => {
   return `${y}-${m}-${d} ${h}:${min}:${s}`;
 };
 
-// 1. 匯出 CSV (處理 Excel 亂碼)
+const formatDateOnly = (date) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+};
+
+const getDaysAgo = (days) => {
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  return formatDateOnly(date);
+};
+
+// 簡單的 SVG 圖表組件 (不依賴外部庫)
+const SimpleChart = ({ data, type, color }) => {
+  if (!data || data.length === 0)
+    return (
+      <div className="h-64 flex items-center justify-center text-slate-400">
+        無數據
+      </div>
+    );
+
+  const height = 200;
+  const width = 100; // percent
+  const maxVal = Math.max(...data.map((d) => d.value), 1);
+
+  return (
+    <div className="h-64 w-full flex items-end justify-between gap-1 pt-4 pb-6 relative">
+      {/* 簡易 Y 軸標線 */}
+      <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-20">
+        <div className="border-t border-slate-500 w-full h-0"></div>
+        <div className="border-t border-slate-500 w-full h-0"></div>
+        <div className="border-t border-slate-500 w-full h-0"></div>
+      </div>
+
+      {data.map((d, i) => {
+        const barHeight = (d.value / maxVal) * 100;
+        return (
+          <div
+            key={i}
+            className="flex-1 flex flex-col justify-end items-center group relative h-full"
+          >
+            <div className="absolute -top-8 bg-slate-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10 whitespace-nowrap">
+              {d.label}: ${d.value}
+            </div>
+            {type === "bar" ? (
+              <div
+                style={{ height: `${barHeight}%` }}
+                className={`w-full max-w-[40px] rounded-t-sm transition-all duration-500 ${color}`}
+              ></div>
+            ) : (
+              // 簡易 Area Chart 模擬 (用 Bar 模擬連續)
+              <div
+                style={{ height: `${barHeight}%` }}
+                className={`w-full transition-all duration-500 ${color} opacity-70`}
+              ></div>
+            )}
+            <div className="text-[10px] text-slate-400 mt-2 truncate w-full text-center">
+              {d.label}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 const exportToCSV = (data, filename) => {
   if (!data || data.length === 0) {
     alert("無資料可匯出");
@@ -99,7 +167,6 @@ const exportToCSV = (data, filename) => {
   document.body.removeChild(downloadLink);
 };
 
-// 2. 匯出 TXT 報表 (記帳清單專用)
 const exportToText = (content, filename) => {
   const blob = new Blob([content], { type: "text/plain;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
@@ -111,7 +178,6 @@ const exportToText = (content, filename) => {
   document.body.removeChild(downloadLink);
 };
 
-// 3. 解析 CSV
 const parseCSV = (text) => {
   const lines = text.trim().split(/\r\n|\n/);
   if (lines.length < 2) return [];
@@ -143,6 +209,7 @@ const INITIAL_PRODUCTS = [
     category: "藥品",
     stock: 45,
     barcode: "88001",
+    isOnSale: true,
   },
   {
     id: "P002",
@@ -151,6 +218,7 @@ const INITIAL_PRODUCTS = [
     category: "飲料",
     stock: 110,
     barcode: "88002",
+    isOnSale: true,
   },
   {
     id: "P003",
@@ -159,6 +227,7 @@ const INITIAL_PRODUCTS = [
     category: "食品",
     stock: 75,
     barcode: "88003",
+    isOnSale: true,
   },
   {
     id: "P004",
@@ -167,6 +236,7 @@ const INITIAL_PRODUCTS = [
     category: "雜貨",
     stock: 190,
     barcode: "88004",
+    isOnSale: true,
   },
   {
     id: "P005",
@@ -175,6 +245,7 @@ const INITIAL_PRODUCTS = [
     category: "雜貨",
     stock: 48,
     barcode: "88005",
+    isOnSale: true,
   },
   {
     id: "P006",
@@ -183,6 +254,7 @@ const INITIAL_PRODUCTS = [
     category: "飲料",
     stock: 180,
     barcode: "88006",
+    isOnSale: true,
   },
   {
     id: "P008",
@@ -191,6 +263,7 @@ const INITIAL_PRODUCTS = [
     category: "雜貨",
     stock: 20,
     barcode: "88007",
+    isOnSale: true,
   },
 ];
 
@@ -202,6 +275,7 @@ const INITIAL_CUSTOMERS = [
 ];
 
 const MOCK_HISTORY_ORDERS = [];
+const MOCK_LOGS = []; // 操作紀錄
 
 const INITIAL_USERS = [
   {
@@ -368,11 +442,19 @@ const Sidebar = ({
               isDarkMode ? "border-slate-700" : "border-slate-100"
             }`}
           ></div>
+          {/* 將「操作紀錄」移至「系統設定」下方 */}
           <MenuItem
             icon={<Settings />}
             label="系統設定"
             onClick={() => navigateTo("settings")}
             active={currentView === "settings"}
+            isDarkMode={isDarkMode}
+          />
+          <MenuItem
+            icon={<History />}
+            label="操作紀錄"
+            onClick={() => navigateTo("logs")}
+            active={currentView === "logs"}
             isDarkMode={isDarkMode}
           />
         </div>
@@ -431,13 +513,12 @@ const PinConfirmModal = ({
   onConfirm,
   currentUser,
   isDarkMode,
+  message,
 }) => {
   const s = getStyles(isDarkMode);
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
-
   if (!isOpen) return null;
-
   const handleConfirm = () => {
     if (pin === currentUser.pin) {
       onConfirm();
@@ -449,7 +530,6 @@ const PinConfirmModal = ({
       setPin("");
     }
   };
-
   return (
     <div className="absolute inset-0 z-[60] bg-black/60 flex items-center justify-center p-4">
       <div
@@ -461,10 +541,9 @@ const PinConfirmModal = ({
           </div>
           <h3 className={`font-bold text-lg ${s.textMain}`}>需要驗證</h3>
           <p className={`text-sm ${s.textSub} text-center`}>
-            請輸入您的 PIN 碼以執行刪除
+            {message || "請輸入您的 PIN 碼以執行操作"}
           </p>
         </div>
-
         <div className="flex justify-center mb-4">
           <div
             className={`text-3xl font-mono tracking-widest py-2 px-6 rounded-lg bg-slate-100 text-slate-800`}
@@ -472,13 +551,11 @@ const PinConfirmModal = ({
             {pin ? pin.replace(/./g, "•") : "____"}
           </div>
         </div>
-
         {error && (
           <div className="text-red-500 text-sm text-center mb-4 font-bold">
             {error}
           </div>
         )}
-
         <div className="grid grid-cols-3 gap-2 mb-4">
           {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
             <button
@@ -544,16 +621,13 @@ const DepartmentManagementModal = ({
   const [newDept, setNewDept] = useState("");
   const [editMode, setEditMode] = useState(null);
   const [editValue, setEditValue] = useState("");
-
   if (!isOpen) return null;
-
   const handleAdd = () => {
     if (newDept && !departments.includes(newDept)) {
       setDepartments([...departments, newDept]);
       setNewDept("");
     }
   };
-
   const handleDelete = (dept) => {
     if (
       confirm(
@@ -566,12 +640,10 @@ const DepartmentManagementModal = ({
       );
     }
   };
-
   const startEdit = (dept) => {
     setEditMode(dept);
     setEditValue(dept);
   };
-
   const saveEdit = (oldDept) => {
     if (editValue && editValue !== oldDept) {
       setDepartments(departments.map((d) => (d === oldDept ? editValue : d)));
@@ -583,72 +655,77 @@ const DepartmentManagementModal = ({
     }
     setEditMode(null);
   };
-
   return (
     <div className="absolute inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+      {" "}
       <div
         className={`${s.bgCard} w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80%]`}
       >
+        {" "}
         <div
           className={`p-4 border-b ${
             isDarkMode ? "border-slate-700" : "border-slate-100"
           } flex justify-between items-center`}
         >
+          {" "}
           <h3
             className={`font-bold text-lg flex items-center gap-2 ${s.textMain}`}
           >
             <Building2 size={20} /> 部門管理
-          </h3>
+          </h3>{" "}
           <button
             onClick={onClose}
             className={`p-1 rounded-full ${s.textSub} hover:bg-slate-100/10`}
           >
             <X />
-          </button>
-        </div>
-
+          </button>{" "}
+        </div>{" "}
         <div className="flex-1 overflow-y-auto p-4">
+          {" "}
           <div className="flex gap-2 mb-4">
+            {" "}
             <input
               value={newDept}
               onChange={(e) => setNewDept(e.target.value)}
-              placeholder="新增部門 (如: 訪客)"
+              placeholder="新增部門"
               className={`flex-1 p-2 rounded-lg outline-none ${s.input}`}
-            />
+            />{" "}
             <button
               onClick={handleAdd}
               className="bg-blue-600 text-white px-4 rounded-lg font-bold"
             >
               新增
-            </button>
-          </div>
-
+            </button>{" "}
+          </div>{" "}
           <div className="space-y-2">
+            {" "}
             {departments.map((dept) => (
               <div
                 key={dept}
                 className={`p-3 rounded-xl border flex justify-between items-center ${s.bgCard}`}
               >
+                {" "}
                 {editMode === dept ? (
                   <div className="flex gap-2 flex-1">
+                    {" "}
                     <input
                       value={editValue}
                       onChange={(e) => setEditValue(e.target.value)}
                       className={`flex-1 p-1 rounded ${s.input} text-sm`}
                       autoFocus
-                    />
+                    />{" "}
                     <button
                       onClick={() => saveEdit(dept)}
                       className="text-green-500 font-bold px-2"
                     >
                       OK
-                    </button>
+                    </button>{" "}
                   </div>
                 ) : (
                   <span className={`font-bold ${s.textMain}`}>{dept}</span>
-                )}
-
+                )}{" "}
                 <div className="flex gap-1">
+                  {" "}
                   {editMode !== dept && (
                     <button
                       onClick={() => startEdit(dept)}
@@ -656,19 +733,19 @@ const DepartmentManagementModal = ({
                     >
                       <Edit3 size={16} />
                     </button>
-                  )}
+                  )}{" "}
                   <button
                     onClick={() => handleDelete(dept)}
                     className="p-2 text-slate-400 hover:text-red-500"
                   >
                     <Trash2 size={16} />
-                  </button>
-                </div>
+                  </button>{" "}
+                </div>{" "}
               </div>
-            ))}
-          </div>
-        </div>
-      </div>
+            ))}{" "}
+          </div>{" "}
+        </div>{" "}
+      </div>{" "}
     </div>
   );
 };
@@ -689,7 +766,6 @@ const CashierManagementModal = ({
     role: "staff",
   });
   const [editingId, setEditingId] = useState(null);
-
   const handleAdd = () => {
     if (!formData.name || !formData.pin) return;
     const newU = {
@@ -703,7 +779,6 @@ const CashierManagementModal = ({
     setViewMode("list");
     setFormData({ name: "", pin: "", role: "staff" });
   };
-
   const handleEdit = () => {
     setUsers(
       users.map((u) => (u.id === editingId ? { ...u, ...formData } : u))
@@ -711,54 +786,54 @@ const CashierManagementModal = ({
     setViewMode("list");
     setEditingId(null);
   };
-
   const handleDelete = (id) => {
     if (users.length <= 1) {
-      alert("至少需保留一位收銀員");
+      alert("至少需保留一位");
       return;
     }
     if (confirm("確定刪除？")) setUsers(users.filter((u) => u.id !== id));
   };
-
   const startEdit = (user) => {
     setFormData({ name: user.name, pin: user.pin, role: user.role });
     setEditingId(user.id);
     setViewMode("edit");
   };
-
   const handleSwitchUser = (user) => {
     setCurrentUser(user);
     onClose();
   };
-
   return (
     <div className="absolute inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+      {" "}
       <div
         className={`${s.bgCard} w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80%]`}
       >
+        {" "}
         <div
           className={`p-4 border-b ${
             isDarkMode ? "border-slate-700" : "border-slate-100"
           } flex justify-between items-center`}
         >
+          {" "}
           <h3 className={`font-bold text-lg ${s.textMain}`}>
             {viewMode === "list"
               ? "收銀員管理"
               : viewMode === "add"
               ? "新增人員"
               : "編輯人員"}
-          </h3>
+          </h3>{" "}
           <button
             onClick={onClose}
             className={`p-1 rounded-full ${s.textSub} hover:bg-slate-100/10`}
           >
             <X />
-          </button>
-        </div>
-
+          </button>{" "}
+        </div>{" "}
         <div className="flex-1 overflow-y-auto p-4">
+          {" "}
           {viewMode === "list" ? (
             <div className="space-y-3">
+              {" "}
               <button
                 onClick={() => {
                   setViewMode("add");
@@ -766,8 +841,9 @@ const CashierManagementModal = ({
                 }}
                 className="w-full py-3 border-2 border-dashed border-slate-300 rounded-xl text-slate-400 font-bold flex items-center justify-center gap-2 hover:border-blue-500 hover:text-blue-500 transition"
               >
-                <Plus size={18} /> 新增收銀員
-              </button>
+                {" "}
+                <Plus size={18} /> 新增收銀員{" "}
+              </button>{" "}
               {users.map((u) => (
                 <div
                   key={u.id}
@@ -779,22 +855,24 @@ const CashierManagementModal = ({
                       : "border-slate-100"
                   }`}
                 >
+                  {" "}
                   <div
                     className="flex items-center gap-3 flex-1 cursor-pointer"
                     onClick={() => handleSwitchUser(u)}
                   >
+                    {" "}
                     <div
                       className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white ${
                         u.role === "admin" ? "bg-red-500" : "bg-blue-500"
                       }`}
                     >
                       {u.name[0]}
-                    </div>
+                    </div>{" "}
                     <div>
                       <div
                         className={`font-bold ${s.textMain} flex items-center gap-2`}
                       >
-                        {u.name}
+                        {u.name}{" "}
                         {u.id === currentUser.id && (
                           <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 rounded-full">
                             目前
@@ -802,29 +880,29 @@ const CashierManagementModal = ({
                         )}
                       </div>
                       <div className="text-xs text-slate-400">PIN: {u.pin}</div>
-                    </div>
-                  </div>
+                    </div>{" "}
+                  </div>{" "}
                   <div className="flex gap-1">
+                    {" "}
                     <button
                       onClick={() => startEdit(u)}
                       className="p-2 text-slate-400 hover:text-blue-500"
                     >
                       <Edit3 size={16} />
-                    </button>
-                    {users.length > 1 && (
-                      <button
-                        onClick={() => handleDelete(u.id)}
-                        className="p-2 text-slate-400 hover:text-red-500"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    )}
-                  </div>
+                    </button>{" "}
+                    <button
+                      onClick={() => handleDelete(u.id)}
+                      className="p-2 text-slate-400 hover:text-red-500"
+                    >
+                      <Trash2 size={16} />
+                    </button>{" "}
+                  </div>{" "}
                 </div>
-              ))}
+              ))}{" "}
             </div>
           ) : (
             <div className="space-y-4">
+              {" "}
               <div>
                 <label className={`text-xs block mb-1 ${s.textSub}`}>
                   名稱
@@ -835,9 +913,8 @@ const CashierManagementModal = ({
                     setFormData({ ...formData, name: e.target.value })
                   }
                   className={`w-full p-3 rounded-lg outline-none ${s.input}`}
-                  placeholder="輸入名稱"
                 />
-              </div>
+              </div>{" "}
               <div>
                 <label className={`text-xs block mb-1 ${s.textSub}`}>
                   PIN 碼
@@ -848,10 +925,10 @@ const CashierManagementModal = ({
                     setFormData({ ...formData, pin: e.target.value })
                   }
                   className={`w-full p-3 rounded-lg outline-none ${s.input}`}
-                  placeholder="輸入數字"
                 />
-              </div>
+              </div>{" "}
               <div className="flex gap-2 mt-4">
+                {" "}
                 <button
                   onClick={() => setViewMode("list")}
                   className={`flex-1 py-3 rounded-xl font-bold ${
@@ -859,18 +936,18 @@ const CashierManagementModal = ({
                   }`}
                 >
                   取消
-                </button>
+                </button>{" "}
                 <button
                   onClick={viewMode === "add" ? handleAdd : handleEdit}
                   className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold"
                 >
                   儲存
-                </button>
-              </div>
+                </button>{" "}
+              </div>{" "}
             </div>
-          )}
-        </div>
-      </div>
+          )}{" "}
+        </div>{" "}
+      </div>{" "}
     </div>
   );
 };
@@ -884,24 +961,20 @@ const CategoryManagementModal = ({
   setProducts,
   isDarkMode,
 }) => {
+  // ... (保持原樣)
   const s = getStyles(isDarkMode);
   const [newCat, setNewCat] = useState("");
   const [editMode, setEditMode] = useState(null);
   const [editValue, setEditValue] = useState("");
-
   if (!isOpen) return null;
-
   const handleAdd = () => {
     if (newCat && !categories.includes(newCat)) {
       setCategories([...categories, newCat]);
       setNewCat("");
     }
   };
-
   const handleDelete = (cat) => {
-    if (
-      confirm(`刪除「${cat}」？\n注意：屬於此種類的商品將變更為「未分類」。`)
-    ) {
+    if (confirm(`刪除「${cat}」？`)) {
       setCategories(categories.filter((c) => c !== cat));
       setProducts(
         products.map((p) =>
@@ -910,12 +983,10 @@ const CategoryManagementModal = ({
       );
     }
   };
-
   const startEdit = (cat) => {
     setEditMode(cat);
     setEditValue(cat);
   };
-
   const saveEdit = (oldCat) => {
     if (editValue && editValue !== oldCat) {
       setCategories(categories.map((c) => (c === oldCat ? editValue : c)));
@@ -927,72 +998,77 @@ const CategoryManagementModal = ({
     }
     setEditMode(null);
   };
-
   return (
     <div className="absolute inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+      {" "}
       <div
         className={`${s.bgCard} w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80%]`}
       >
+        {" "}
         <div
           className={`p-4 border-b ${
             isDarkMode ? "border-slate-700" : "border-slate-100"
           } flex justify-between items-center`}
         >
+          {" "}
           <h3
             className={`font-bold text-lg flex items-center gap-2 ${s.textMain}`}
           >
             <Tags size={20} /> 種類管理
-          </h3>
+          </h3>{" "}
           <button
             onClick={onClose}
             className={`p-1 rounded-full ${s.textSub} hover:bg-slate-100/10`}
           >
             <X />
-          </button>
-        </div>
-
+          </button>{" "}
+        </div>{" "}
         <div className="flex-1 overflow-y-auto p-4">
+          {" "}
           <div className="flex gap-2 mb-4">
+            {" "}
             <input
               value={newCat}
               onChange={(e) => setNewCat(e.target.value)}
               placeholder="新增種類"
               className={`flex-1 p-2 rounded-lg outline-none ${s.input}`}
-            />
+            />{" "}
             <button
               onClick={handleAdd}
               className="bg-blue-600 text-white px-4 rounded-lg font-bold"
             >
               新增
-            </button>
-          </div>
-
+            </button>{" "}
+          </div>{" "}
           <div className="space-y-2">
+            {" "}
             {categories.map((cat) => (
               <div
                 key={cat}
                 className={`p-3 rounded-xl border flex justify-between items-center ${s.bgCard}`}
               >
+                {" "}
                 {editMode === cat ? (
                   <div className="flex gap-2 flex-1">
+                    {" "}
                     <input
                       value={editValue}
                       onChange={(e) => setEditValue(e.target.value)}
                       className={`flex-1 p-1 rounded ${s.input} text-sm`}
                       autoFocus
-                    />
+                    />{" "}
                     <button
                       onClick={() => saveEdit(cat)}
                       className="text-green-500 font-bold px-2"
                     >
                       OK
-                    </button>
+                    </button>{" "}
                   </div>
                 ) : (
                   <span className={`font-bold ${s.textMain}`}>{cat}</span>
-                )}
-
+                )}{" "}
                 <div className="flex gap-1">
+                  {" "}
                   {editMode !== cat && (
                     <button
                       onClick={() => startEdit(cat)}
@@ -1000,38 +1076,164 @@ const CategoryManagementModal = ({
                     >
                       <Edit3 size={16} />
                     </button>
-                  )}
+                  )}{" "}
                   <button
                     onClick={() => handleDelete(cat)}
                     className="p-2 text-slate-400 hover:text-red-500"
                   >
                     <Trash2 size={16} />
-                  </button>
-                </div>
+                  </button>{" "}
+                </div>{" "}
               </div>
-            ))}
-          </div>
-        </div>
-      </div>
+            ))}{" "}
+          </div>{" "}
+        </div>{" "}
+      </div>{" "}
     </div>
   );
 };
 
 // --- View 組件 ---
 
-// 新增：客戶歷史視圖
+// 操作紀錄頁面
+const OperationLogView = ({ logs, onMenuClick, isDarkMode }) => {
+  const s = getStyles(isDarkMode);
+  const today = formatDateOnly(new Date());
+  const thirtyDaysAgo = getDaysAgo(30);
+  const [dateRange, setDateRange] = useState({
+    start: thirtyDaysAgo,
+    end: today,
+  });
+  const [tab, setTab] = useState("delete"); // delete or modify
+
+  const filteredLogs = logs
+    .filter((log) => {
+      const logDate = log.time.split(" ")[0];
+      return (
+        logDate >= dateRange.start &&
+        logDate <= dateRange.end &&
+        log.type === tab
+      );
+    })
+    .sort((a, b) => b.id - a.id);
+
+  return (
+    <div
+      className={`flex flex-col h-full ${s.bgMain} transition-colors duration-300`}
+    >
+      <Header
+        title="操作紀錄"
+        onMenuClick={onMenuClick}
+        isDarkMode={isDarkMode}
+      />
+      <div className="flex-1 overflow-y-auto p-4">
+        {/* 日期區間 */}
+        <div
+          className={`${s.bgCard} p-3 rounded-xl shadow-sm mb-4 flex items-center gap-2`}
+        >
+          <div className="flex-1">
+            <label className={`text-[10px] block mb-1 ${s.textSub}`}>
+              開始日期
+            </label>
+            <input
+              type="date"
+              value={dateRange.start}
+              onChange={(e) =>
+                setDateRange({ ...dateRange, start: e.target.value })
+              }
+              className={`w-full p-1.5 rounded-lg text-sm outline-none ${s.input}`}
+            />
+          </div>
+          <div className={s.textSub}>-</div>
+          <div className="flex-1">
+            <label className={`text-[10px] block mb-1 ${s.textSub}`}>
+              結束日期
+            </label>
+            <input
+              type="date"
+              value={dateRange.end}
+              onChange={(e) =>
+                setDateRange({ ...dateRange, end: e.target.value })
+              }
+              className={`w-full p-1.5 rounded-lg text-sm outline-none ${s.input}`}
+            />
+          </div>
+        </div>
+
+        {/* 切換標籤 */}
+        <div className="flex gap-2 mb-4">
+          <button
+            onClick={() => setTab("delete")}
+            className={`flex-1 py-2 rounded-lg font-bold text-sm ${
+              tab === "delete"
+                ? "bg-red-500 text-white"
+                : `${s.bgCard} ${s.textSub}`
+            }`}
+          >
+            刪除紀錄
+          </button>
+          <button
+            onClick={() => setTab("modify")}
+            className={`flex-1 py-2 rounded-lg font-bold text-sm ${
+              tab === "modify"
+                ? "bg-orange-500 text-white"
+                : `${s.bgCard} ${s.textSub}`
+            }`}
+          >
+            修改紀錄
+          </button>
+        </div>
+
+        {/* 列表 */}
+        <div className="space-y-3">
+          {filteredLogs.length === 0 ? (
+            <div className={`text-center py-10 ${s.textSub}`}>無紀錄</div>
+          ) : (
+            filteredLogs.map((log) => (
+              <div key={log.id} className={`p-4 rounded-xl border ${s.bgCard}`}>
+                <div className="flex justify-between items-start mb-2">
+                  <div className={`font-mono text-xs ${s.textSub}`}>
+                    {log.time}
+                  </div>
+                  <div className={`font-bold text-sm ${s.textMain}`}>
+                    {log.cashier}
+                  </div>
+                </div>
+                <div className={`font-bold ${s.textMain} text-lg mb-1`}>
+                  {log.type === "delete" ? "訂單刪除" : "訂單修改"}
+                </div>
+                <div className="text-sm space-y-1">
+                  <div className={s.textSub}>
+                    單號: <span className={s.textMain}>{log.order_id}</span>
+                  </div>
+                  <div className={s.textSub}>
+                    客戶:{" "}
+                    <span className={s.textMain}>{log.customer_name}</span>
+                  </div>
+                  <div className={s.textSub}>
+                    金額: <span className={s.textMain}>${log.total}</span>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const CustomerHistoryView = ({
   viewingCustomer,
   orders,
   setView,
   isDarkMode,
 }) => {
+  // ... (保持原樣)
   const s = getStyles(isDarkMode);
-
   const customerOrders = orders
     .filter((o) => o.customer_id === viewingCustomer.id)
     .sort((a, b) => new Date(b.date) - new Date(a.date));
-
   return (
     <div
       className={`flex flex-col h-full ${s.bgMain} transition-colors duration-300`}
@@ -1051,12 +1253,10 @@ const CustomerHistoryView = ({
           </span>
           <div className={`text-xs ${s.textSub}`}>歷史紀錄</div>
         </div>
-        {/* 顯示目前餘額 (僅作參考，無紅字樣式) */}
         <div className={`text-lg font-bold ${s.textMain}`}>
           ${viewingCustomer.balance}
         </div>
       </div>
-
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {customerOrders.length === 0 ? (
           <div className={`text-center py-10 ${s.textSub}`}>無歷史紀錄</div>
@@ -1064,7 +1264,9 @@ const CustomerHistoryView = ({
           customerOrders.map((order) => (
             <div
               key={order.order_id}
-              className={`p-4 rounded-xl shadow-sm border flex justify-between items-center ${s.bgCard}`}
+              className={`p-4 rounded-xl shadow-sm border flex justify-between items-center ${
+                s.bgCard
+              } ${order.status === "deleted" ? "opacity-50 grayscale" : ""}`}
             >
               <div>
                 <div className={`font-bold ${s.textMain} text-sm mb-1`}>
@@ -1077,7 +1279,7 @@ const CustomerHistoryView = ({
               <div className="text-right">
                 <div
                   className={`font-bold ${
-                    order.status === "refunded"
+                    order.status === "refunded" || order.status === "deleted"
                       ? "text-slate-400 line-through"
                       : "text-blue-500"
                   }`}
@@ -1086,6 +1288,9 @@ const CustomerHistoryView = ({
                 </div>
                 {order.status === "refunded" && (
                   <span className="text-[10px] text-red-500">已退款</span>
+                )}
+                {order.status === "deleted" && (
+                  <span className="text-[10px] text-red-500">已刪除</span>
                 )}
               </div>
             </div>
@@ -1108,6 +1313,7 @@ const CustomerSelectView = ({
   currentUser,
   setViewingCustomer,
 }) => {
+  // ... (保持原樣，僅需注意 handleViewHistory 的連結)
   const s = getStyles(isDarkMode);
   const [deptFilter, setDeptFilter] = useState("全部");
   const [isAddEditOpen, setIsAddEditOpen] = useState(false);
@@ -1115,26 +1321,22 @@ const CustomerSelectView = ({
   const [isPinModalOpen, setIsPinModalOpen] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState(null);
   const [editForm, setEditForm] = useState(null);
-  const [customerForm, setCustomerForm] = useState({ name: "", dept: "" }); // 移除 limit
+  const [customerForm, setCustomerForm] = useState({ name: "", dept: "" });
   const fileInputRef = useRef(null);
-
   const filtered = customers.filter(
     (c) => deptFilter === "全部" || c.dept === deptFilter
   );
-
   const openAdd = () => {
     setEditForm(null);
     setCustomerForm({ name: "", dept: departments[0] });
     setIsAddEditOpen(true);
   };
-
   const openEdit = (customer, e) => {
     e.stopPropagation();
     setEditForm(customer);
     setCustomerForm({ name: customer.name, dept: customer.dept });
     setIsAddEditOpen(true);
   };
-
   const handleSave = () => {
     if (!customerForm.name) return;
     if (editForm) {
@@ -1154,24 +1356,20 @@ const CustomerSelectView = ({
     }
     setIsAddEditOpen(false);
   };
-
   const handleDeleteClick = (id, e) => {
     e.stopPropagation();
     setDeleteTargetId(id);
     setIsPinModalOpen(true);
   };
-
   const executeDelete = () => {
     setCustomers(customers.filter((c) => c.id !== deleteTargetId));
     setDeleteTargetId(null);
   };
-
   const handleViewHistory = (customer, e) => {
     e.stopPropagation();
     setViewingCustomer(customer);
     setView("customer_history");
   };
-
   const handleImport = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -1179,11 +1377,8 @@ const CustomerSelectView = ({
     reader.onload = (evt) => {
       try {
         const parsedData = parseCSV(evt.target.result);
-        if (
-          parsedData.length > 0 &&
-          (!parsedData[0].name || !parsedData[0].dept)
-        ) {
-          alert("CSV 格式錯誤，需包含 name, dept 欄位");
+        if (parsedData.length > 0 && !parsedData[0].name) {
+          alert("CSV 格式錯誤");
           return;
         }
         const newCustomers = parsedData.map((c, i) => ({
@@ -1193,7 +1388,7 @@ const CustomerSelectView = ({
           balance: parseInt(c.balance) || 0,
         }));
         setCustomers([...customers, ...newCustomers]);
-        alert(`成功匯入 ${newCustomers.length} 筆客戶資料`);
+        alert(`成功匯入`);
       } catch (err) {
         alert("匯入失敗");
       }
@@ -1201,54 +1396,56 @@ const CustomerSelectView = ({
     reader.readAsText(file);
     e.target.value = "";
   };
-
   return (
     <div
       className={`flex flex-col h-full ${s.bgMain} transition-colors duration-300`}
     >
+      {" "}
       <Header
         title="選擇人員"
         onMenuClick={onMenuClick}
         isDarkMode={isDarkMode}
         rightElement={
           <div className="flex gap-2">
+            {" "}
             <button
               onClick={() => setIsDeptModalOpen(true)}
               className={`p-2 rounded-full ${s.textSub} ${s.header} hover:text-blue-500`}
-              title="管理部門"
             >
               <Building2 size={20} />
-            </button>
+            </button>{" "}
             <button
               onClick={() => exportToCSV(customers, "crew_export")}
               className={`p-2 rounded-full ${s.textSub} ${s.header}`}
             >
               <Download size={20} />
-            </button>
+            </button>{" "}
             <button
               onClick={() => fileInputRef.current.click()}
               className={`p-2 rounded-full ${s.textSub} ${s.header}`}
             >
               <Upload size={20} />
-            </button>
+            </button>{" "}
             <input
               type="file"
               accept=".csv"
               ref={fileInputRef}
               onChange={handleImport}
               className="hidden"
-            />
+            />{" "}
             <button
               onClick={openAdd}
               className="p-2 bg-blue-600 text-white rounded-full"
             >
               <Plus size={20} />
-            </button>
+            </button>{" "}
           </div>
         }
-      />
+      />{" "}
       <div className={`${s.header} px-4 pb-2 transition-colors duration-300`}>
+        {" "}
         <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+          {" "}
           <button
             onClick={() => setDeptFilter("全部")}
             className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap ${
@@ -1258,7 +1455,7 @@ const CustomerSelectView = ({
             }`}
           >
             全部
-          </button>
+          </button>{" "}
           {departments.map((dept) => (
             <button
               key={dept}
@@ -1271,10 +1468,11 @@ const CustomerSelectView = ({
             >
               {dept}
             </button>
-          ))}
-        </div>
-      </div>
+          ))}{" "}
+        </div>{" "}
+      </div>{" "}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {" "}
         {filtered.map((c) => (
           <div
             key={c.id}
@@ -1284,7 +1482,9 @@ const CustomerSelectView = ({
             }}
             className={`w-full p-4 rounded-xl shadow-sm border flex items-center justify-between active:scale-[0.98] transition cursor-pointer group ${s.bgCard} ${s.hover}`}
           >
+            {" "}
             <div className="flex items-center gap-4">
+              {" "}
               <div
                 className={`w-12 h-12 rounded-full flex items-center justify-center text-white ${
                   ["指揮部", "輪機部", "補給部", "戰系部"].includes(c.dept)
@@ -1293,7 +1493,7 @@ const CustomerSelectView = ({
                 }`}
               >
                 {c.dept?.[0] || "?"}
-              </div>
+              </div>{" "}
               <div className="text-left">
                 <div className={`font-bold text-lg ${s.textMain}`}>
                   {c.name}
@@ -1301,42 +1501,44 @@ const CustomerSelectView = ({
                 <div className={`text-sm ${s.textSub}`}>
                   {c.dept || "無部門"}
                 </div>
-              </div>
-            </div>
-            {/* 修改：移除紅字餘額，加入檢視按鈕 */}
+              </div>{" "}
+            </div>{" "}
             <div className="flex items-center gap-3">
+              {" "}
               <button
                 onClick={(e) => handleViewHistory(c, e)}
                 className={`p-2 rounded-full ${s.textSub} hover:bg-slate-200 hover:text-blue-600 transition`}
-                title="檢視歷史紀錄"
               >
                 <Eye size={18} />
-              </button>
+              </button>{" "}
               <button
                 onClick={(e) => openEdit(c, e)}
                 className={`p-2 rounded-full ${s.textSub} hover:bg-slate-200 hover:text-blue-600 transition`}
               >
                 <Edit3 size={18} />
-              </button>
+              </button>{" "}
               <button
                 onClick={(e) => handleDeleteClick(c.id, e)}
                 className={`p-2 rounded-full ${s.textSub} hover:bg-red-100 hover:text-red-600 transition`}
               >
                 <Trash2 size={18} />
-              </button>
-            </div>
+              </button>{" "}
+            </div>{" "}
           </div>
-        ))}
-      </div>
+        ))}{" "}
+      </div>{" "}
       {isAddEditOpen && (
         <div className="absolute inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          {" "}
           <div
             className={`${s.bgCard} rounded-2xl w-full max-w-sm p-6 shadow-2xl`}
           >
+            {" "}
             <h3 className={`text-xl font-bold mb-4 ${s.textMain}`}>
               {editForm ? "編輯人員" : "新增人員"}
-            </h3>
+            </h3>{" "}
             <div className="space-y-3">
+              {" "}
               <div>
                 <label className={`text-xs block mb-1 ${s.textSub}`}>
                   姓名
@@ -1348,7 +1550,7 @@ const CustomerSelectView = ({
                   }
                   className={`w-full p-3 rounded-lg outline-none ${s.input}`}
                 />
-              </div>
+              </div>{" "}
               <div>
                 <label className={`text-xs block mb-1 ${s.textSub}`}>
                   部門
@@ -1367,8 +1569,8 @@ const CustomerSelectView = ({
                     </option>
                   ))}
                 </select>
-              </div>
-            </div>
+              </div>{" "}
+            </div>{" "}
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => setIsAddEditOpen(false)}
@@ -1386,17 +1588,17 @@ const CustomerSelectView = ({
               >
                 儲存
               </button>
-            </div>
-          </div>
+            </div>{" "}
+          </div>{" "}
         </div>
-      )}
+      )}{" "}
       <PinConfirmModal
         isOpen={isPinModalOpen}
         onClose={() => setIsPinModalOpen(false)}
         onConfirm={executeDelete}
         currentUser={currentUser}
         isDarkMode={isDarkMode}
-      />
+      />{" "}
       <DepartmentManagementModal
         isOpen={isDeptModalOpen}
         onClose={() => setIsDeptModalOpen(false)}
@@ -1405,7 +1607,7 @@ const CustomerSelectView = ({
         customers={customers}
         setCustomers={setCustomers}
         isDarkMode={isDarkMode}
-      />
+      />{" "}
     </div>
   );
 };
@@ -1423,6 +1625,7 @@ const POSView = ({
   isDarkMode,
   layoutMode,
 }) => {
+  // ... (保持原樣)
   const s = getStyles(isDarkMode);
   const [showCartDetail, setShowCartDetail] = useState(false);
   const [filterCategory, setFilterCategory] = useState("所有商品");
@@ -1436,7 +1639,8 @@ const POSView = ({
     const matchSearch = searchKeyword
       ? p.name.includes(searchKeyword) || p.barcode?.includes(searchKeyword)
       : true;
-    return matchCategory && matchSearch;
+    const matchOnSale = p.isOnSale === true;
+    return matchCategory && matchSearch && matchOnSale;
   });
   const POSHeaderContent = () => (
     <div className="flex items-center gap-2 w-full max-w-[200px] sm:max-w-xs transition-all duration-300">
@@ -1904,6 +2108,11 @@ const ReceiptListView = ({
                           <span className="text-xs text-red-500 bg-red-100 px-1 rounded ml-1">
                             退款
                           </span>
+                        )}{" "}
+                        {order.status === "deleted" && (
+                          <span className="text-xs text-gray-500 bg-gray-200 px-1 rounded ml-1">
+                            刪除
+                          </span>
                         )}
                       </div>{" "}
                       <div className={`text-xs ${s.textSub}`}>
@@ -1923,116 +2132,188 @@ const ReceiptListView = ({
     </div>
   );
 };
-const ReceiptDetailView = ({ selectedReceipt, processRefund, setView }) => {
-  const [refundStep, setRefundStep] = useState(0);
+
+// 重構：ReceiptDetailView (支援修改與刪除)
+const ReceiptDetailView = ({
+  selectedReceipt,
+  processRefund,
+  setView,
+  onEditOrder,
+  onDeleteOrder,
+  isDarkMode,
+  currentUser,
+}) => {
+  const s = getStyles(isDarkMode);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editedItems, setEditedItems] = useState([]);
+  const [isPinModalOpen, setIsPinModalOpen] = useState(false);
+  const [actionType, setActionType] = useState(null); // 'edit' or 'delete'
+
+  useEffect(() => {
+    if (selectedReceipt)
+      setEditedItems(JSON.parse(JSON.stringify(selectedReceipt.items)));
+  }, [selectedReceipt]);
+
   if (!selectedReceipt) return null;
+
+  const handleQtyChange = (idx, delta) => {
+    const newItems = [...editedItems];
+    newItems[idx].qty = Math.max(0, newItems[idx].qty + delta);
+    setEditedItems(newItems);
+  };
+
+  const handleConfirmAction = () => {
+    if (actionType === "edit") {
+      onEditOrder(selectedReceipt, editedItems);
+      setIsEditMode(false);
+    } else if (actionType === "delete") {
+      onDeleteOrder(selectedReceipt);
+      setView("receipt_list");
+    }
+    setIsPinModalOpen(false);
+  };
+
+  const triggerAction = (type) => {
+    setActionType(type);
+    setIsPinModalOpen(true);
+  };
+
+  const editedTotal = editedItems.reduce(
+    (sum, item) => sum + item.price * item.qty,
+    0
+  );
+
   return (
-    <div className="flex flex-col h-full bg-slate-100">
-      {" "}
-      <div className="bg-white p-4 flex items-center gap-3 border-b">
-        <button onClick={() => setView("receipt_list")} className="p-2 -ml-2">
+    <div
+      className={`flex flex-col h-full ${s.bgMain} transition-colors duration-300`}
+    >
+      <div
+        className={`${s.header} px-4 py-3 flex items-center gap-3 shadow-sm border-b`}
+      >
+        <button
+          onClick={() => setView("receipt_list")}
+          className={`p-2 -ml-2 ${s.textSub}`}
+        >
           <ChevronLeft />
         </button>
-        <span className="font-bold text-lg">交易詳情</span>
-      </div>{" "}
+        <span className={`font-bold text-lg ${s.textMain}`}>交易詳情</span>
+      </div>
       <div className="flex-1 overflow-y-auto p-4">
-        {" "}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 relative overflow-hidden">
-          {" "}
-          {selectedReceipt.status === "refunded" && (
-            <div className="absolute top-5 right-5 border-2 border-red-500 text-red-500 px-2 font-bold -rotate-12">
-              REFUNDED
+        <div
+          className={`${s.bgCard} p-6 rounded-2xl shadow-sm border relative overflow-hidden`}
+        >
+          {(selectedReceipt.status === "refunded" ||
+            selectedReceipt.status === "deleted") && (
+            <div
+              className={`absolute top-5 right-5 border-2 px-2 font-bold -rotate-12 ${
+                selectedReceipt.status === "deleted"
+                  ? "border-gray-500 text-gray-500"
+                  : "border-red-500 text-red-500"
+              }`}
+            >
+              {selectedReceipt.status === "deleted" ? "DELETED" : "REFUNDED"}
             </div>
-          )}{" "}
-          <div className="text-center border-b border-dashed pb-4 mb-4">
-            {" "}
-            <div className="text-4xl font-bold text-slate-800">
-              ${selectedReceipt.total}
-            </div>{" "}
-            <div className="flex justify-center mt-2">
-              {" "}
-              {selectedReceipt.method === "cash" ? (
-                <span className="px-3 py-1 bg-green-100 text-green-700 font-bold rounded-full text-sm flex items-center gap-1">
-                  <DollarSign size={14} /> 現金支付 (Cash)
-                </span>
-              ) : (
-                <span className="px-3 py-1 bg-orange-100 text-orange-700 font-bold rounded-full text-sm flex items-center gap-1">
-                  <FileText size={14} /> 記帳/賒帳 (Tab)
-                </span>
-              )}{" "}
-            </div>{" "}
-            <div className="text-sm text-slate-500 mt-2">
+          )}
+          <div className="text-center border-b border-dashed border-slate-300 pb-4 mb-4">
+            <div className={`text-4xl font-bold ${s.textMain}`}>
+              ${isEditMode ? editedTotal : selectedReceipt.total}
+            </div>
+            <div className={`text-sm mt-2 ${s.textSub}`}>
               {selectedReceipt.date}
-            </div>{" "}
-          </div>{" "}
-          <div className="space-y-3 text-sm">
-            {" "}
-            <div className="flex justify-between">
-              <span className="text-slate-500">客戶</span>
-              <span className="font-bold">{selectedReceipt.customer_name}</span>
-            </div>{" "}
-            <div className="flex justify-between">
-              <span className="text-slate-500">收銀員</span>
-              <span className="font-bold">{selectedReceipt.cashier}</span>
-            </div>{" "}
-            <div className="flex justify-between">
-              <span className="text-slate-500">單號</span>
-              <span className="font-mono">{selectedReceipt.order_id}</span>
-            </div>{" "}
-          </div>{" "}
-          <div className="mt-4 pt-4 border-t bg-slate-50 -mx-6 -mb-6 p-6">
-            {" "}
-            {selectedReceipt.items.map((i, idx) => (
-              <div key={idx} className="flex justify-between mb-2 text-sm">
-                <span className="text-slate-700">
-                  {i.name} x{i.qty}
-                </span>
-                <span className="font-medium">${i.price * i.qty}</span>
-              </div>
-            ))}{" "}
-          </div>{" "}
-        </div>{" "}
-        {selectedReceipt.status !== "refunded" && (
-          <div className="mt-6">
-            {" "}
-            {refundStep === 0 ? (
-              <button
-                onClick={() => setRefundStep(1)}
-                className="w-full bg-white border border-red-200 text-red-500 py-3 rounded-xl font-bold flex items-center justify-center gap-2"
-              >
-                <RotateCcw size={18} /> 申請退款
-              </button>
-            ) : (
-              <div className="bg-red-50 p-4 rounded-xl border border-red-100">
-                {" "}
-                <h4 className="font-bold text-red-800 mb-2 flex items-center gap-2">
-                  <AlertTriangle size={18} /> 確定要退款？
-                </h4>{" "}
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => setRefundStep(0)}
-                    className="flex-1 py-3 bg-white border rounded-lg font-bold text-slate-600"
-                  >
-                    取消
-                  </button>
-                  <button
-                    onClick={() => {
-                      processRefund(selectedReceipt);
-                      setRefundStep(0);
-                    }}
-                    className="flex-1 py-3 bg-red-600 text-white rounded-lg font-bold shadow-sm"
-                  >
-                    確認退款
-                  </button>
-                </div>{" "}
-              </div>
-            )}{" "}
+            </div>
           </div>
-        )}{" "}
-      </div>{" "}
+
+          {isEditMode ? (
+            <div className="space-y-3">
+              {editedItems.map((item, idx) => (
+                <div key={idx} className="flex justify-between items-center">
+                  <span className={s.textMain}>{item.name}</span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleQtyChange(idx, -1)}
+                      className={`p-1 rounded ${s.input}`}
+                    >
+                      -
+                    </button>
+                    <span className={`w-6 text-center ${s.textMain}`}>
+                      {item.qty}
+                    </span>
+                    <button
+                      onClick={() => handleQtyChange(idx, 1)}
+                      className={`p-1 rounded ${s.input}`}
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {selectedReceipt.items.map((i, idx) => (
+                <div key={idx} className="flex justify-between text-sm">
+                  <span className={s.textMain}>
+                    {i.name} x{i.qty}
+                  </span>
+                  <span className={s.textMain}>${i.price * i.qty}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {selectedReceipt.status === "completed" && (
+          <div className="mt-6 flex gap-3">
+            {isEditMode ? (
+              <>
+                <button
+                  onClick={() => setIsEditMode(false)}
+                  className={`flex-1 py-3 rounded-xl font-bold ${s.input}`}
+                >
+                  取消
+                </button>
+                <button
+                  onClick={() => triggerAction("edit")}
+                  className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-md"
+                >
+                  確認修改
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => setIsEditMode(true)}
+                  className={`flex-1 py-3 border border-blue-500 text-blue-500 rounded-xl font-bold flex items-center justify-center gap-2`}
+                >
+                  <Edit3 size={18} /> 修改
+                </button>
+                <button
+                  onClick={() => triggerAction("delete")}
+                  className={`flex-1 py-3 border border-red-500 text-red-500 rounded-xl font-bold flex items-center justify-center gap-2`}
+                >
+                  <Trash2 size={18} /> 刪除
+                </button>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+      <PinConfirmModal
+        isOpen={isPinModalOpen}
+        onClose={() => setIsPinModalOpen(false)}
+        onConfirm={handleConfirmAction}
+        currentUser={currentUser}
+        isDarkMode={isDarkMode}
+        message={
+          actionType === "edit"
+            ? "確定要修改此訂單嗎？"
+            : "確定要刪除此訂單嗎？"
+        }
+      />
     </div>
   );
 };
+
 const ReceiptSuccessView = ({ activeCustomer, setView }) => (
   <div className="h-full flex flex-col items-center justify-center bg-slate-50 p-6">
     {" "}
@@ -2517,11 +2798,20 @@ const ItemsManageView = ({
         {filteredProducts.map((p) => (
           <div
             key={p.id}
-            className={`p-4 rounded-xl shadow-sm border flex justify-between items-center ${s.bgCard}`}
+            className={`p-4 rounded-xl shadow-sm border flex justify-between items-center ${
+              s.bgCard
+            } ${!p.isOnSale ? "opacity-60" : ""}`}
           >
             {" "}
             <div>
-              <div className={`font-bold text-lg ${s.textMain}`}>{p.name}</div>
+              <div className={`font-bold text-lg ${s.textMain}`}>
+                {p.name}{" "}
+                {!p.isOnSale && (
+                  <span className="text-xs bg-gray-500 text-white px-1 rounded ml-1">
+                    停售
+                  </span>
+                )}
+              </div>
               <div className={`text-xs ${s.textSub} flex gap-2`}>
                 <span>{p.category}</span>
                 <span>|</span>
@@ -2610,7 +2900,27 @@ const ItemsManageView = ({
                   className={`w-full p-3 rounded-lg outline-none ${s.input}`}
                   placeholder="條碼"
                 />
-              </div>{" "}
+              </div>
+              {/* 上下架開關 */}
+              <div
+                className="flex items-center gap-2 cursor-pointer"
+                onClick={() =>
+                  setEditForm({ ...editForm, isOnSale: !editForm.isOnSale })
+                }
+              >
+                <div
+                  className={`w-5 h-5 border rounded flex items-center justify-center ${
+                    editForm.isOnSale
+                      ? "bg-blue-600 border-blue-600"
+                      : "border-slate-400"
+                  }`}
+                >
+                  {editForm.isOnSale && (
+                    <CheckCircle size={14} className="text-white" />
+                  )}
+                </div>
+                <span className={`text-sm ${s.textMain}`}>目前販售中</span>
+              </div>
             </div>{" "}
             <div className="flex gap-3 mt-6">
               <button
@@ -2648,57 +2958,82 @@ const ItemsManageView = ({
 const DashboardView = ({ orders, customers, onMenuClick, isDarkMode }) => {
   const s = getStyles(isDarkMode);
   const today = new Date();
-  const defaultStart = new Date(today.getFullYear(), today.getMonth(), 1)
-    .toISOString()
-    .split("T")[0];
-  const defaultEnd = today.toISOString().split("T")[0];
+  const defaultStart = getDaysAgo(30);
+  const defaultEnd = formatDateOnly(today);
   const [dateRange, setDateRange] = useState({
     start: defaultStart,
     end: defaultEnd,
   });
+  const [chartMode, setChartMode] = useState("day"); // day, week, month
+  const [chartType, setChartType] = useState("bar"); // bar, area
 
-  // Add refreshing state
-  const [isRefreshing, setIsRefreshing] = useState(false);
-
-  const handleRefresh = () => {
-    setIsRefreshing(true);
-    // Simulate a delay for visual feedback
-    setTimeout(() => {
-      setIsRefreshing(false);
-    }, 500);
-  };
-
-  // 1. 計算區間數據
+  // 數據統計 (Metric Cards)
   const stats = useMemo(() => {
     const filteredOrders = orders.filter((o) => {
-      const orderDate = o.date.split(" ")[0]; // formatDateTime returns YYYY-MM-DD HH:mm:ss, split by space
-      return orderDate >= dateRange.start && orderDate <= dateRange.end;
+      const orderDate = o.date.split(" ")[0];
+      return (
+        orderDate >= dateRange.start &&
+        orderDate <= dateRange.end &&
+        o.status !== "deleted"
+      );
     });
 
     const receiptCount = filteredOrders.length;
     const salesTotal = filteredOrders
       .filter((o) => o.status === "completed")
       .reduce((sum, o) => sum + o.total, 0);
-    const refundTotal = filteredOrders
-      .filter((o) => o.status === "refunded")
-      .reduce((sum, o) => sum + o.total, 0);
-    const netRevenue = salesTotal - refundTotal;
 
-    return { receiptCount, salesTotal, refundTotal, netRevenue };
-  }, [orders, customers, dateRange, isRefreshing]);
+    // 營收數據 (只計算 completed，不扣 deleted 因為 deleted 視為未發生，但 refunded 需扣除?
+    // 根據需求：銷售總額(Gross), 所有收據(Count)。
 
-  // 2. 匯出 CSV 報表
+    return { receiptCount, salesTotal };
+  }, [orders, dateRange]);
+
+  // 圖表數據聚合
+  const chartData = useMemo(() => {
+    const filtered = orders.filter((o) => {
+      const d = o.date.split(" ")[0];
+      return (
+        d >= dateRange.start && d <= dateRange.end && o.status === "completed"
+      );
+    });
+
+    const grouped = {};
+
+    filtered.forEach((o) => {
+      let key = o.date.split(" ")[0]; // Default Day
+      const dateObj = new Date(o.date);
+
+      if (chartMode === "week") {
+        // 簡單週次計算 (ISO week would be better but keeping it simple)
+        const firstDayOfYear = new Date(dateObj.getFullYear(), 0, 1);
+        const pastDays = (dateObj - firstDayOfYear) / 86400000;
+        const weekNum = Math.ceil((pastDays + firstDayOfYear.getDay() + 1) / 7);
+        key = `W${weekNum}`;
+      } else if (chartMode === "month") {
+        key = `${dateObj.getFullYear()}-${String(
+          dateObj.getMonth() + 1
+        ).padStart(2, "0")}`;
+      }
+
+      if (!grouped[key]) grouped[key] = 0;
+      grouped[key] += o.total;
+    });
+
+    return Object.entries(grouped).map(([label, value]) => ({ label, value }));
+  }, [orders, dateRange, chartMode]);
+
+  // ... (Export functions same as before) ...
+  // 重複的 export logic 簡略，直接使用 props 傳入或 component 內定義皆可，這裡為保持一致性保留邏輯
   const handleExportReport = () => {
     const filteredOrders = orders.filter((o) => {
       const orderDate = o.date.split(" ")[0];
       return orderDate >= dateRange.start && orderDate <= dateRange.end;
     });
-
     if (filteredOrders.length === 0) {
       alert("無訂單");
       return;
     }
-
     const flatData = filteredOrders.map((o) => ({
       日期: o.date,
       收據號碼: o.order_id,
@@ -2713,7 +3048,6 @@ const DashboardView = ({ orders, customers, onMenuClick, isDarkMode }) => {
     exportToCSV(flatData, `Receipts_${dateRange.start}_${dateRange.end}`);
   };
 
-  // 3. 匯出記帳清單 (TXT)
   const handleExportTabList = () => {
     const filteredOrders = orders.filter((o) => {
       const orderDate = o.date.split(" ")[0];
@@ -2724,14 +3058,11 @@ const DashboardView = ({ orders, customers, onMenuClick, isDarkMode }) => {
         o.status === "completed"
       );
     });
-
     if (filteredOrders.length === 0) {
-      alert("此區間無記帳紀錄");
+      alert("無記帳紀錄");
       return;
     }
-
     const deptMap = {};
-
     filteredOrders.forEach((o) => {
       const customer = customers.find((c) => c.id === o.customer_id);
       const dept = customer
@@ -2740,18 +3071,15 @@ const DashboardView = ({ orders, customers, onMenuClick, isDarkMode }) => {
         ? "其他"
         : "未知";
       const name = o.customer_name;
-
       if (!deptMap[dept]) deptMap[dept] = {};
       if (!deptMap[dept][name]) deptMap[dept][name] = 0;
       deptMap[dept][name] += o.total;
     });
-
     let content = `記帳日期：${dateRange.start.replace(
       /-/g,
       "."
     )} - ${dateRange.end.replace(/-/g, ".")}\n\n`;
     let grandTotal = 0;
-
     Object.keys(deptMap).forEach((dept) => {
       content += `${dept}\n`;
       let deptTotal = 0;
@@ -2762,24 +3090,9 @@ const DashboardView = ({ orders, customers, onMenuClick, isDarkMode }) => {
       content += ` 小計：$${deptTotal}元\n\n`;
       grandTotal += deptTotal;
     });
-
     content += `記帳總金額合計：$${grandTotal}元`;
-
     exportToText(content, `Tab_List_${dateRange.start}_${dateRange.end}`);
   };
-
-  const MetricCard = ({ title, value, color, icon: Icon }) => (
-    <div
-      className={`${s.cardMetrics} p-4 rounded-xl shadow-sm border ${
-        isDarkMode ? "border-slate-700" : "border-slate-100"
-      } flex flex-col justify-between`}
-    >
-      <div className={`text-xs ${s.textSub} mb-1 flex items-center gap-1`}>
-        {Icon && <Icon size={12} />} {title}
-      </div>
-      <div className={`text-xl font-bold ${color}`}>{value}</div>
-    </div>
-  );
 
   return (
     <div
@@ -2789,25 +3102,15 @@ const DashboardView = ({ orders, customers, onMenuClick, isDarkMode }) => {
         title="後台報表"
         onMenuClick={onMenuClick}
         isDarkMode={isDarkMode}
-        rightElement={
-          <button
-            onClick={handleRefresh}
-            className={`p-2 rounded-full ${s.textSub} ${s.hover} ${
-              isRefreshing ? "animate-spin" : ""
-            }`}
-            title="更新數據"
-          >
-            <RefreshCw size={20} />
-          </button>
-        }
       />
       <div className="flex-1 overflow-y-auto p-4">
+        {/* Date Filter */}
         <div
           className={`${s.bgCard} p-3 rounded-xl shadow-sm mb-4 flex items-center gap-2`}
         >
           <div className="flex-1">
             <label className={`text-[10px] block mb-1 ${s.textSub}`}>
-              開始日期
+              開始
             </label>
             <input
               type="date"
@@ -2821,7 +3124,7 @@ const DashboardView = ({ orders, customers, onMenuClick, isDarkMode }) => {
           <div className={s.textSub}>-</div>
           <div className="flex-1">
             <label className={`text-[10px] block mb-1 ${s.textSub}`}>
-              結束日期
+              結束
             </label>
             <input
               type="date"
@@ -2834,69 +3137,95 @@ const DashboardView = ({ orders, customers, onMenuClick, isDarkMode }) => {
           </div>
         </div>
 
+        {/* Metrics */}
         <div className="grid grid-cols-2 gap-3 mb-6">
-          <MetricCard
-            title="所有收據"
-            value={`${stats.receiptCount} 筆`}
-            color={s.textMain}
-            icon={FileText}
-          />
-          <MetricCard
-            title="銷售總額"
-            value={`$${stats.salesTotal}`}
-            color="text-blue-500"
-            icon={TrendingUp}
-          />
-          <MetricCard
-            title="退款總額"
-            value={`$${stats.refundTotal}`}
-            color="text-red-500"
-            icon={RotateCcw}
-          />
-          <MetricCard
-            title="區間淨營收"
-            value={`$${stats.netRevenue}`}
-            color="text-green-500"
-            icon={DollarIcon}
+          <div
+            className={`${s.cardMetrics} p-4 rounded-xl shadow-sm border ${
+              isDarkMode ? "border-slate-700" : "border-slate-100"
+            }`}
+          >
+            <div className={`text-xs ${s.textSub} mb-1`}>銷售總額</div>
+            <div className="text-2xl font-bold text-blue-500">
+              ${stats.salesTotal}
+            </div>
+          </div>
+          <div
+            className={`${s.cardMetrics} p-4 rounded-xl shadow-sm border ${
+              isDarkMode ? "border-slate-700" : "border-slate-100"
+            }`}
+          >
+            <div className={`text-xs ${s.textSub} mb-1`}>所有收據</div>
+            <div className={`text-2xl font-bold ${s.textMain}`}>
+              {stats.receiptCount}
+            </div>
+          </div>
+        </div>
+
+        {/* Chart Controls */}
+        <div className={`${s.bgCard} p-4 rounded-xl shadow-sm mb-4`}>
+          <div className="flex justify-between items-center mb-4">
+            <div className="flex gap-2">
+              {["day", "week", "month"].map((m) => (
+                <button
+                  key={m}
+                  onClick={() => setChartMode(m)}
+                  className={`px-3 py-1 rounded text-xs font-bold ${
+                    chartMode === m ? "bg-blue-600 text-white" : s.input
+                  }`}
+                >
+                  {m === "day" ? "天" : m === "week" ? "週" : "月"}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setChartType("bar")}
+                className={`p-1 rounded ${
+                  chartType === "bar" ? "text-blue-500" : s.textSub
+                }`}
+              >
+                <BarChart2 size={16} />
+              </button>
+              <button
+                onClick={() => setChartType("area")}
+                className={`p-1 rounded ${
+                  chartType === "area" ? "text-blue-500" : s.textSub
+                }`}
+              >
+                <Activity size={16} />
+              </button>
+            </div>
+          </div>
+
+          {/* SVG Chart */}
+          <SimpleChart
+            data={chartData}
+            type={chartType}
+            color={isDarkMode ? "bg-blue-500" : "bg-blue-600"}
           />
         </div>
 
+        {/* Exports */}
         <div className={`${s.bgCard} p-4 rounded-xl shadow-sm space-y-3`}>
-          <h3 className={`font-bold text-lg ${s.textMain} mb-2`}>報表匯出</h3>
-
-          <div className="flex justify-between items-center p-3 border rounded-lg border-slate-100">
-            <div>
-              <div
-                className={`font-bold ${s.textMain} flex items-center gap-2`}
-              >
-                <FileSpreadsheet size={16} /> 收據明細 CSV
-              </div>
-              <div className={`text-xs ${s.textSub}`}>所有交易流水帳</div>
-            </div>
-            <button
-              onClick={handleExportReport}
-              className="bg-blue-600 text-white px-3 py-2 rounded-lg text-xs font-bold shadow active:scale-95"
-            >
-              匯出 CSV
-            </button>
-          </div>
-
-          <div className="flex justify-between items-center p-3 border rounded-lg border-slate-100">
-            <div>
-              <div
-                className={`font-bold ${s.textMain} flex items-center gap-2`}
-              >
-                <FileTextIcon size={16} /> 記帳人員清單 TXT
-              </div>
-              <div className={`text-xs ${s.textSub}`}>單位/人員結算單</div>
-            </div>
-            <button
-              onClick={handleExportTabList}
-              className="bg-orange-500 text-white px-3 py-2 rounded-lg text-xs font-bold shadow active:scale-95"
-            >
-              匯出清單
-            </button>
-          </div>
+          <h3 className={`font-bold ${s.textMain} mb-2`}>報表匯出</h3>
+          <button
+            onClick={handleExportReport}
+            className="w-full bg-blue-600 text-white px-3 py-3 rounded-lg text-sm font-bold flex justify-between items-center shadow-sm"
+          >
+            <span className="flex items-center gap-2">
+              <FileSpreadsheet size={16} /> 收據明細 CSV
+            </span>{" "}
+            <Download size={16} />
+          </button>
+          <button
+            onClick={handleExportTabList}
+            className="w-full bg-orange-500 text-white px-3 py-3 rounded-lg text-sm font-bold flex justify-between items-center shadow-sm"
+          >
+            <span className="flex items-center gap-2">
+              <FileTextIcon size={16} /> 記帳清單 TXT
+            </span>{" "}
+            <Download size={16} />
+          </button>
         </div>
       </div>
     </div>
@@ -2914,38 +3243,37 @@ const App = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [layoutMode, setLayoutMode] = useState("grid");
   const [isCashierModalOpen, setIsCashierModalOpen] = useState(false);
-  const [viewingCustomer, setViewingCustomer] = useState(null); // 新增：正在查看歷史的客戶
+  const [viewingCustomer, setViewingCustomer] = useState(null);
 
-  // Lazy Initialization for LocalStorage
+  // Lazy Initialization
   const [users, setUsers] = useState(() => {
     const saved = localStorage.getItem("pos_users");
     return saved ? JSON.parse(saved) : INITIAL_USERS;
   });
-
   const [products, setProducts] = useState(() => {
     const saved = localStorage.getItem("pos_products");
     return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
   });
-
   const [customers, setCustomers] = useState(() => {
     const saved = localStorage.getItem("pos_customers");
     return saved ? JSON.parse(saved) : INITIAL_CUSTOMERS;
   });
-
   const [orders, setOrders] = useState(() => {
     const saved = localStorage.getItem("pos_orders");
     return saved ? JSON.parse(saved) : MOCK_HISTORY_ORDERS;
   });
-
   const [categories, setCategories] = useState(() => {
     const saved = localStorage.getItem("pos_categories");
     return saved ? JSON.parse(saved) : INITIAL_CATEGORIES;
   });
-
   const [departments, setDepartments] = useState(() => {
     const saved = localStorage.getItem("pos_departments");
     return saved ? JSON.parse(saved) : INITIAL_DEPARTMENTS;
   });
+  const [logs, setLogs] = useState(() => {
+    const saved = localStorage.getItem("pos_logs");
+    return saved ? JSON.parse(saved) : MOCK_LOGS;
+  }); // 新增 Logs State
 
   const [cart, setCart] = useState([]);
   const [selectedReceipt, setSelectedReceipt] = useState(null);
@@ -2969,13 +3297,82 @@ const App = () => {
   useEffect(() => {
     localStorage.setItem("pos_departments", JSON.stringify(departments));
   }, [departments]);
+  useEffect(() => {
+    localStorage.setItem("pos_logs", JSON.stringify(logs));
+  }, [logs]);
 
-  // Reset Data Function (Emergency Use)
-  const handleResetData = () => {
-    if (confirm("確定重置所有資料？此操作無法復原！")) {
-      localStorage.clear();
-      window.location.reload();
+  // Actions
+  const addLog = (type, orderId, total, method, customerName, details = "") => {
+    const newLog = {
+      id: Date.now(),
+      type, // 'delete' | 'modify'
+      time: formatDateTime(new Date()),
+      cashier: currentUser?.name || "System",
+      order_id: orderId,
+      total,
+      method,
+      customer_name: customerName,
+      details,
+    };
+    setLogs((prev) => [newLog, ...prev]);
+  };
+
+  const onEditOrder = (oldOrder, newItems) => {
+    const newTotal = newItems.reduce((sum, i) => sum + i.price * i.qty, 0);
+    // Update Order
+    const updatedOrders = orders.map((o) =>
+      o.order_id === oldOrder.order_id
+        ? { ...o, items: newItems, total: newTotal }
+        : o
+    );
+    setOrders(updatedOrders);
+
+    // Update Balance if tab
+    if (oldOrder.method === "tab") {
+      const diff = newTotal - oldOrder.total;
+      setCustomers(
+        customers.map((c) =>
+          c.id === oldOrder.customer_id
+            ? { ...c, balance: c.balance + diff }
+            : c
+        )
+      );
     }
+
+    addLog(
+      "modify",
+      oldOrder.order_id,
+      newTotal,
+      oldOrder.method,
+      oldOrder.customer_name,
+      `原金額: $${oldOrder.total}`
+    );
+  };
+
+  const onDeleteOrder = (order) => {
+    const updatedOrders = orders.map((o) =>
+      o.order_id === order.order_id ? { ...o, status: "deleted" } : o
+    );
+    setOrders(updatedOrders);
+
+    // Restore Balance if tab
+    if (order.method === "tab") {
+      setCustomers(
+        customers.map((c) =>
+          c.id === order.customer_id
+            ? { ...c, balance: c.balance - order.total }
+            : c
+        )
+      );
+    }
+
+    addLog(
+      "delete",
+      order.order_id,
+      order.total,
+      order.method,
+      order.customer_name
+    );
   };
 
   const handleLoginCheck = (inputPin) => {
@@ -3013,19 +3410,17 @@ const App = () => {
     setView(target);
   };
 
-  // 匯入歷史收據邏輯 (包含 items 格式的處理)
   const handleImportReceipts = (file) => {
     const reader = new FileReader();
     reader.onload = (evt) => {
       try {
         const parsedData = parseCSV(evt.target.result);
-        // 檢查關鍵欄位：收據號碼 or 訂單編號
         if (
           parsedData.length > 0 &&
           !parsedData[0]["收據號碼"] &&
           !parsedData[0]["訂單編號"]
         ) {
-          alert('CSV 格式錯誤，需包含"收據號碼"等欄位');
+          alert("CSV 格式錯誤");
           return;
         }
         const newOrders = parsedData.map((row, i) => ({
@@ -3041,7 +3436,7 @@ const App = () => {
               ? "cash"
               : "tab",
           status: "completed",
-          items: [], // 簡化處理：歷史匯入暫不還原 items 陣列，僅作金額統計
+          items: [],
         }));
         setOrders([...orders, ...newOrders]);
         alert(`成功匯入 ${newOrders.length} 筆歷史收據`);
@@ -3075,12 +3470,11 @@ const App = () => {
     setCart(cart.filter((i) => i.id !== id));
   };
 
-  // 結帳邏輯 (使用簡單流水號 #0001，並修正日期格式)
   const processPayment = (method) => {
     const nextId = String(orders.length + 1).padStart(4, "0");
     const newOrder = {
       order_id: `#${nextId}`,
-      date: formatDateTime(new Date()), // 使用標準化日期格式
+      date: formatDateTime(new Date()),
       cashier: currentUser.name,
       items: cart,
       total: cart.reduce((sum, item) => sum + item.price * item.qty, 0),
@@ -3109,22 +3503,6 @@ const App = () => {
     setView("receipt_success");
   };
 
-  const processRefund = (order) => {
-    const updatedOrders = orders.map((o) =>
-      o.order_id === order.order_id ? { ...o, status: "refunded" } : o
-    );
-    setOrders(updatedOrders);
-    if (order.method === "tab") {
-      setCustomers(
-        customers.map((c) =>
-          c.id === order.customer_id
-            ? { ...c, balance: c.balance - order.total }
-            : c
-        )
-      );
-    }
-    setSelectedReceipt({ ...order, status: "refunded" });
-  };
   const handleSaveProduct = (productData) => {
     if (productData.category && !categories.includes(productData.category)) {
       setCategories([...categories, productData.category]);
@@ -3212,8 +3590,6 @@ const App = () => {
           onImportHistory={handleImportReceipts}
         />
       )}
-      {/* 新增重置按鈕到設定頁面 (需稍微修改 SettingsView，但為了保持單檔簡潔，這裡僅透過 console 或隱藏方式觸發，或可視需求加入 UI) */}
-
       {view === "customer_select" && (
         <CustomerSelectView
           customers={customers}
@@ -3225,11 +3601,9 @@ const App = () => {
           onMenuClick={() => setIsMenuOpen(true)}
           isDarkMode={isDarkMode}
           currentUser={currentUser}
-          setViewingCustomer={setViewingCustomer} // 傳遞設定檢視客戶的函數
+          setViewingCustomer={setViewingCustomer}
         />
       )}
-
-      {/* 新增：客戶歷史收據視圖 */}
       {view === "customer_history" && viewingCustomer && (
         <CustomerHistoryView
           viewingCustomer={viewingCustomer}
@@ -3238,7 +3612,6 @@ const App = () => {
           isDarkMode={isDarkMode}
         />
       )}
-
       {view === "pos" && (
         <POSView
           activeCustomer={activeCustomer}
@@ -3278,8 +3651,11 @@ const App = () => {
       {view === "receipt_detail" && (
         <ReceiptDetailView
           selectedReceipt={selectedReceipt}
-          processRefund={processRefund}
           setView={setView}
+          onEditOrder={onEditOrder}
+          onDeleteOrder={onDeleteOrder}
+          isDarkMode={isDarkMode}
+          currentUser={currentUser}
         />
       )}
       {view === "items_manage" && (
@@ -3289,6 +3665,13 @@ const App = () => {
           handleSaveProduct={handleSaveProduct}
           categories={categories}
           setCategories={setCategories}
+          onMenuClick={() => setIsMenuOpen(true)}
+          isDarkMode={isDarkMode}
+        />
+      )}
+      {view === "logs" && (
+        <OperationLogView
+          logs={logs}
           onMenuClick={() => setIsMenuOpen(true)}
           isDarkMode={isDarkMode}
         />
