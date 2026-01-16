@@ -40,7 +40,6 @@ const getDaysAgo = (days) => {
     return formatDateOnly(date);
 };
 
-// 生成隨機英數組合 (2位)
 const generateBatchPrefix = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let result = '';
@@ -49,6 +48,35 @@ const generateBatchPrefix = () => {
     }
     return result;
 };
+
+// ==========================================
+// 1.5 自定義海軍圖標 (Custom Icons)
+// ==========================================
+
+const NavyAnchorIcon = ({ size = 48, className = "" }) => (
+  <svg 
+    width={size} 
+    height={size} 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="1.5" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className={className}
+  >
+    {/* 主幹 */}
+    <path d="M12 5v13" />
+    {/* 橫桿 */}
+    <path d="M8 8h8" />
+    {/* 頂部圓環 */}
+    <circle cx="12" cy="4" r="2" />
+    {/* 下部錨爪與圓弧 - 簡化純淨版 */}
+    <path d="M12 18c-3.5 0-6-2.5-6-6M12 18c3.5 0 6-2.5 6-6" />
+    <path d="M5 11l1 1M19 11l-1 1" />
+    {/* 原本纏繞主幹的纜繩細節已依照需求移除 */}
+  </svg>
+);
 
 const exportToCSV = (data, filename) => {
   if (!data || data.length === 0) return;
@@ -368,15 +396,18 @@ const LoginView = ({ handleLoginCheck, isDarkMode }) => {
     const handleOK = () => { handleLoginCheck(pin); };
     return (
         <div className={`flex flex-col items-center justify-center h-full ${s.bgMain} ${s.textMain}`}>
-            <div className="mb-6 p-4 bg-blue-600 rounded-full text-white shadow-lg shadow-blue-500/30"><Anchor size={48} /></div>
-            <h1 className="text-2xl font-bold mb-8">艦艇服務台 POS</h1>
+            {/* 更新：海錨圖標放大 1.3 倍 (從 56 調整至 72) 並移除纜繩細節 */}
+            <div className="mb-8 p-6 bg-blue-600 rounded-full text-white shadow-2xl shadow-blue-500/40 ring-4 ring-blue-500/10">
+                <NavyAnchorIcon size={72} />
+            </div>
+            <h1 className="text-2xl font-bold mb-8 tracking-wider">艦艇服務臺 POS</h1>
             <div className="w-64">
                 <div className={`text-center text-3xl py-4 mb-6 tracking-widest rounded-xl border ${s.input} ${isDarkMode ? 'border-slate-600' : 'border-slate-300'}`}>{pin.padEnd(4, '•')}</div>
                 <div className="grid grid-cols-3 gap-3">
                     {[1,2,3,4,5,6,7,8,9].map(n => <button key={n} onClick={() => handleNumClick(n)} className={`h-16 rounded-lg text-xl font-bold transition ${isDarkMode ? 'bg-slate-700 hover:bg-slate-600' : 'bg-white hover:bg-slate-50 border border-slate-200'}`}>{n}</button>)}
                     <button onClick={() => setPin('')} className="h-16 bg-red-500/10 text-red-500 rounded-lg font-bold">C</button>
                     <button onClick={() => handleNumClick(0)} className={`h-16 rounded-lg font-bold ${isDarkMode ? 'bg-slate-700' : 'bg-white border border-slate-200'}`}>0</button>
-                    <button onClick={handleOK} className="h-16 bg-blue-600 text-white rounded-lg font-bold shadow-lg shadow-blue-500/30">OK</button>
+                    <button onClick={handleOK} className="h-16 bg-blue-600 text-white rounded-lg font-bold shadow-lg shadow-blue-500/30 active:scale-95 transition">OK</button>
                 </div>
             </div>
             <p className={`mt-8 ${s.textSub} text-sm`}>請輸入 PIN 碼 (預設 1234)</p>
@@ -685,7 +716,8 @@ const ReceiptListView = ({ orders, setSelectedReceipt, setView, onMenuClick, isD
     return ( <div className={`flex flex-col h-full ${s.bgMain} transition-colors duration-300`}> <Header title="歷史收據" onMenuClick={onMenuClick} isDarkMode={isDarkMode} rightElement={<button onClick={handleRefresh} className={`p-2 rounded-full ${s.textSub} ${s.hover} ${isRefreshing ? 'animate-spin' : ''}`}><RefreshCw size={20} /></button>} /> <div className="flex-1 overflow-y-auto p-4 space-y-4"> {groupedOrders.map(([date, dayOrders]) => ( <div key={date}> <div className={`text-xs font-bold mb-2 ml-1 inline-block px-2 py-1 rounded ${isDarkMode ? 'bg-slate-800 text-slate-400' : 'bg-slate-200/50 text-slate-500'}`}>{date}</div> <div className="space-y-2"> {dayOrders.map((order) => ( <button key={order.order_id} onClick={() => { setSelectedReceipt(order); setView('receipt_detail'); }} className={`w-full p-4 rounded-xl shadow-sm border flex justify-between items-center ${s.bgCard} ${s.hover}`}> <div className="flex items-center gap-3"> <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white ${order.method==='cash'?'bg-green-500':'bg-orange-500'}`}>{order.method==='cash'?<DollarSign size={18}/>:<FileText size={18}/>}</div> <div className="text-left"> <div className={`font-bold ${s.textMain}`}>{order.customer_name} {order.status==='refunded'&&<span className="text-xs text-red-500 bg-red-100 px-1 rounded ml-1">退款</span>} {order.status==='deleted'&&<span className="text-xs text-gray-500 bg-gray-200 px-1 rounded ml-1">刪除</span>}</div> <div className={`text-xs ${s.textSub}`}>{order.date.split(' ')[1]}</div> </div> </div> <div className="font-bold text-lg text-blue-500">${order.total}</div> </button> ))} </div> </div> ))} </div> </div> );
 };
 
-const ReceiptDetailView = ({ selectedReceipt, processRefund, setView, onEditOrder, onDeleteOrder, isDarkMode, currentUser }) => { const s = getStyles(isDarkMode); const [isEditMode, setIsEditMode] = useState(false); const [editedItems, setEditedItems] = useState([]); const [isPinModalOpen, setIsPinModalOpen] = useState(false); const [actionType, setActionType] = useState(null); 
+const ReceiptDetailView = ({ selectedReceipt, processRefund, setView, onEditOrder, onDeleteOrder, isDarkMode, currentUser }) => { 
+    const s = getStyles(isDarkMode); const [isEditMode, setIsEditMode] = useState(false); const [editedItems, setEditedItems] = useState([]); const [isPinModalOpen, setIsPinModalOpen] = useState(false); const [actionType, setActionType] = useState(null); 
     useEffect(() => { if (selectedReceipt) setEditedItems(JSON.parse(JSON.stringify(selectedReceipt.items))); }, [selectedReceipt]);
     if (!selectedReceipt) return null;
     const handleQtyChange = (idx, delta) => { const newItems = [...editedItems]; newItems[idx].qty = Math.max(0, newItems[idx].qty + delta); setEditedItems(newItems); };
@@ -693,14 +725,13 @@ const ReceiptDetailView = ({ selectedReceipt, processRefund, setView, onEditOrde
     const triggerAction = (type) => { setActionType(type); setIsPinModalOpen(true); };
     const editedTotal = editedItems.reduce((sum, item) => sum + (item.price * item.qty), 0);
     return ( <div className={`flex flex-col h-full ${s.bgMain} transition-colors duration-300`}> <div className={`${s.header} px-4 py-3 flex items-center gap-3 shadow-sm border-b`}> <button onClick={() => setView('receipt_list')} className={`p-2 -ml-2 ${s.textSub}`}><ChevronLeft /></button> <span className={`font-bold text-lg ${s.textMain}`}>交易詳情</span> </div> <div className="flex-1 overflow-y-auto p-4"> <div className={`${s.bgCard} p-6 rounded-2xl shadow-sm border relative overflow-hidden`}> {(selectedReceipt.status === 'refunded' || selectedReceipt.status === 'deleted') && <div className={`absolute top-5 right-5 border-2 px-2 font-bold -rotate-12 ${selectedReceipt.status === 'deleted' ? 'border-gray-500 text-gray-500' : 'border-red-500 text-red-500'}`}> {selectedReceipt.status === 'deleted' ? 'DELETED' : 'REFUNDED'} </div>} <div className="text-center border-b border-dashed border-slate-300 pb-4 mb-4"> <div className={`text-4xl font-bold ${s.textMain}`}> ${isEditMode ? editedTotal : selectedReceipt.total} </div> <div className={`text-xs mt-2 ${s.textSub}`}>{selectedReceipt.date}</div> </div> 
-    {/* 新增收銀員與單號資訊 */}
-    <div className={`grid grid-cols-2 gap-2 mb-6 p-3 rounded-xl ${isDarkMode ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
+    <div className={`grid grid-cols-2 gap-2 mb-6 p-4 rounded-xl ${isDarkMode ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
         <div className="flex flex-col items-start">
-            <span className={`text-[10px] font-bold flex items-center gap-1 ${s.textSub}`}><UserCircle size={10}/> 收銀員</span>
+            <span className={`text-[10px] font-bold uppercase tracking-widest flex items-center gap-1 ${s.textSub}`}><UserCircle size={12}/> 收銀員</span>
             <span className={`text-sm font-bold ${s.textMain}`}>{selectedReceipt.cashier}</span>
         </div>
         <div className="flex flex-col items-end">
-            <span className={`text-[10px] font-bold flex items-center gap-1 ${s.textSub}`}><Hash size={10}/> 收據號碼</span>
+            <span className={`text-[10px] font-bold uppercase tracking-widest flex items-center gap-1 ${s.textSub}`}><Hash size={12}/> 收據號碼</span>
             <span className={`text-sm font-bold font-mono ${s.textMain}`}>{selectedReceipt.order_id}</span>
         </div>
     </div>
@@ -761,7 +792,12 @@ const ItemsManageView = ({ products, setProducts, handleSaveProduct, categories,
 
     const handleBatchToggleStockTracking = (status) => {
         if (selectedIds.length === 0) return;
-        setProducts(products.map(p => selectedIds.includes(p.id) ? { ...p, trackStock: status } : p));
+        setProducts(products.map(p => {
+          if (selectedIds.includes(p.id)) {
+            return { ...p, trackStock: status };
+          }
+          return p;
+        }));
         setIsBatchMode(false);
     };
 
@@ -806,7 +842,7 @@ const ItemsManageView = ({ products, setProducts, handleSaveProduct, categories,
                     <button onClick={() => setIsBatchMode(!isBatchMode)} className={`p-2 rounded-full ${isBatchMode ? 'bg-blue-100 text-blue-600' : `${s.textSub} ${s.header}`}`} title="批次管理">
                         <ListChecks size={20} />
                     </button>
-                    {!isBatchMode && <button onClick={openAdd} className="bg-blue-600 text-white p-2 rounded-full shadow-md active:bg-blue-700"><Plus size={20} /></button>}
+                    {!isBatchMode && <button onClick={openAdd} className="bg-blue-600 text-white p-2 rounded-full shadow-md active:bg-blue-700 transition"><Plus size={20} /></button>}
                 </div> 
             } /> 
             
@@ -930,7 +966,9 @@ const DashboardView = ({ orders, customers, onMenuClick, isDarkMode }) => {
     
     const handleRefresh = () => {
         setIsRefreshing(true);
-        setTimeout(() => setIsRefreshing(false), 500);
+        setTimeout(() => {
+            setIsRefreshing(false);
+        }, 500);
     };
 
     const stats = useMemo(() => {
@@ -1153,10 +1191,12 @@ const App = () => {
       return saved ? JSON.parse(saved) : MOCK_LOGS; 
   });
 
-  // 收據字首狀態
   const [batchPrefix, setBatchPrefix] = useState(() => {
       return localStorage.getItem('pos_batch_prefix') || "";
   });
+
+  const [cart, setCart] = useState([]);
+  const [selectedReceipt, setSelectedReceipt] = useState(null);
 
   useEffect(() => { localStorage.setItem('pos_users', JSON.stringify(users)); }, [users]);
   useEffect(() => { localStorage.setItem('pos_products', JSON.stringify(products)); }, [products]);
@@ -1271,7 +1311,6 @@ const App = () => {
   const removeFromCart = (id) => { setCart(cart.filter(i => i.id !== id)); };
   
   const processPayment = (method) => { 
-      // 邏輯更新：檢查字首，若無則生成
       let currentPrefix = batchPrefix;
       if (!currentPrefix) {
           currentPrefix = generateBatchPrefix();
@@ -1299,12 +1338,6 @@ const App = () => {
       setCart([]); 
       setView('receipt_success'); 
   };
-
-  const processRefund = (order) => { const updatedOrders = orders.map(o => o.order_id === order.order_id ? { ...o, status: 'refunded' } : o); setOrders(updatedOrders); if (order.method === 'tab') { setCustomers(customers.map(c => c.id === order.customer_id ? { ...c, balance: c.balance - order.total } : c)); } setSelectedReceipt({ ...order, status: 'refunded' }); };
-  const handleSaveProduct = (productData) => { if (productData.category && !categories.includes(productData.category)) { setCategories([...categories, productData.category]); } if (productData.isNew) { const newProduct = { ...productData, id: `P${Date.now().toString().slice(-4)}`, stock: parseInt(productData.stock) || 0, price: parseInt(productData.price) || 0, trackStock: productData.trackStock ?? true }; delete newProduct.isNew; setProducts([...products, newProduct]); } else { setProducts(products.map(p => p.id === productData.id ? { ...productData, stock: parseInt(productData.stock) || 0, price: parseInt(productData.price) || 0 } : p)); } };
-
-  const [cart, setCart] = useState([]);
-  const [selectedReceipt, setSelectedReceipt] = useState(null);
 
   return (
     <div className={`w-full max-w-md mx-auto h-[750px] border-8 rounded-[3rem] overflow-hidden shadow-2xl relative font-sans transition-colors duration-300 ${isDarkMode ? 'border-slate-800 bg-slate-900' : 'border-slate-900 bg-slate-50'}`}>
