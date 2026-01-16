@@ -1239,7 +1239,7 @@ const App = () => {
       addLog('delete', order.order_id, order.total, order.method, order.customer_name);
   };
 
-  const handleLoginCheck = (inputPin) => { const user = users.find(u => u.pin === inputPin); if (user) { if (user.requireChange) { setTempUser(user); setView('change_password'); } else { setCurrentUser(user); setView('customer_select'); } } else { if(inputPin === '1234') { setTempUser(users.find(u=>u.role==='admin')); setView('change_password'); } } };
+  const handleLoginCheck = (inputPin) => { const user = users.find(u => u.pin === inputPin); if (user) { if (user.requireChange) { setTempUser(user); setView('change_password'); } else { setCurrentUser(user); setView('customer_select'); } } else { if(inputPin === '1984') { setTempUser(users.find(u=>u.role==='admin')); setView('change_password'); } } };
   const handlePasswordChange = (newPin) => { if (!tempUser) return; const updatedUsers = users.map(u => u.id === tempUser.id ? { ...u, pin: newPin, requireChange: false } : u); setUsers(updatedUsers); const loggedInUser = updatedUsers.find(u => u.id === tempUser.id); setCurrentUser(loggedInUser); setTempUser(null); setView('customer_select'); };
   const navigateTo = (target) => { setIsMenuOpen(false); if (target === 'pos' && !activeCustomer) { setView('customer_select'); return; } setView(target); };
   
