@@ -50,7 +50,7 @@ const generateBatchPrefix = () => {
 };
 
 // ==========================================
-// 1.5 自定義海軍圖標 (Custom Icons)
+// 1.5 自定義圖標 (Custom Icons)
 // ==========================================
 
 const NavyAnchorIcon = ({ size = 48, className = "" }) => (
@@ -65,16 +65,11 @@ const NavyAnchorIcon = ({ size = 48, className = "" }) => (
     strokeLinejoin="round" 
     className={className}
   >
-    {/* 主幹 */}
     <path d="M12 5v13" />
-    {/* 橫桿 */}
     <path d="M8 8h8" />
-    {/* 頂部圓環 */}
     <circle cx="12" cy="4" r="2" />
-    {/* 下部錨爪與圓弧 - 簡化純淨版 */}
     <path d="M12 18c-3.5 0-6-2.5-6-6M12 18c3.5 0 6-2.5 6-6" />
     <path d="M5 11l1 1M19 11l-1 1" />
-    {/* 原本纏繞主幹的纜繩細節已依照需求移除 */}
   </svg>
 );
 
@@ -396,7 +391,6 @@ const LoginView = ({ handleLoginCheck, isDarkMode }) => {
     const handleOK = () => { handleLoginCheck(pin); };
     return (
         <div className={`flex flex-col items-center justify-center h-full ${s.bgMain} ${s.textMain}`}>
-            {/* 更新：海錨圖標放大 1.3 倍 (從 56 調整至 72) 並移除纜繩細節 */}
             <div className="mb-8 p-6 bg-blue-600 rounded-full text-white shadow-2xl shadow-blue-500/40 ring-4 ring-blue-500/10">
                 <NavyAnchorIcon size={72} />
             </div>
@@ -739,8 +733,9 @@ const ReceiptDetailView = ({ selectedReceipt, processRefund, setView, onEditOrde
     {isEditMode ? ( <div className="space-y-3"> {editedItems.map((item, idx) => ( <div key={idx} className="flex justify-between items-center"> <span className={s.textMain}>{item.name}</span> <div className="flex items-center gap-2"> <button onClick={() => handleQtyChange(idx, -1)} className={`p-1 rounded ${s.input}`}>-</button> <span className={`w-6 text-center ${s.textMain}`}>{item.qty}</span> <button onClick={() => handleQtyChange(idx, 1)} className={`p-1 rounded ${s.input}`}>+</button> </div> </div> ))} </div> ) : ( <div className="space-y-2"> {selectedReceipt.items.map((i, idx) => ( <div key={idx} className="flex justify-between text-sm"> <span className={s.textMain}>{i.name} x{i.qty}</span> <span className={s.textMain}>${i.price * i.qty}</span> </div> ))} </div> )} </div> {selectedReceipt.status === 'completed' && ( <div className="mt-6 flex gap-3"> {isEditMode ? ( <> <button onClick={() => setIsEditMode(false)} className={`flex-1 py-3 rounded-xl font-bold ${s.input}`}>取消</button> <button onClick={() => triggerAction('edit')} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-md">確認修改</button> </> ) : ( <> <button onClick={() => setIsEditMode(true)} className={`flex-1 py-3 border border-blue-500 text-blue-500 rounded-xl font-bold flex items-center justify-center gap-2`}> <Edit3 size={18} /> 修改 </button> <button onClick={() => triggerAction('delete')} className={`flex-1 py-3 border border-red-500 text-red-500 rounded-xl font-bold flex items-center justify-center gap-2`}> <Trash2 size={18} /> 刪除 </button> </> )} </div> )} </div> <PinConfirmModal isOpen={isPinModalOpen} onClose={() => setIsPinModalOpen(false)} onConfirm={handleConfirmAction} currentUser={currentUser} isDarkMode={isDarkMode} message={actionType === 'edit' ? '確定要修改此訂單嗎？' : '確定要刪除此訂單嗎？'} /> </div> );
 };
 
-const ReceiptSuccessView = ({ activeCustomer, setView }) => ( <div className="h-full flex flex-col items-center justify-center bg-slate-50 p-6"> <div className="bg-white p-8 rounded-2xl shadow-lg w-full max-w-sm text-center"> <CheckCircle className="w-20 h-20 text-green-500 mx-auto mb-4" /> <h2 className="text-2xl font-bold text-slate-800 mb-6">交易完成</h2> <button onClick={() => setView('customer_select')} className="w-full bg-slate-200 text-slate-700 py-3 rounded-xl font-bold mb-3">回客戶列表</button> <button onClick={() => setView('pos')} className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold">繼續為 {activeCustomer?.name}點餐</button> </div> </div> );
+const ReceiptSuccessView = ({ activeCustomer, setView }) => ( <div className="h-full flex flex-col items-center justify-center bg-slate-50 p-6"> <div className="bg-white p-8 rounded-2xl shadow-lg w-full max-w-sm text-center"> <CheckCircle className="w-20 h-20 text-green-500 mx-auto mb-4" /> <h2 className="text-2xl font-bold text-slate-800 mb-6">交易完成</h2> <button onClick={() => setView('customer_select')} className="w-full bg-slate-200 text-slate-700 py-3 rounded-xl font-bold mb-3">回客戶列表</button> <button onClick={() => setView('pos')} className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold">繼續為 {activeCustomer?.name} 點餐</button> </div> </div> );
 
+//ItemsManageView (修復按鈕屬性與數據轉換邏輯)
 const ItemsManageView = ({ products, setProducts, handleSaveProduct, categories, setCategories, onMenuClick, isDarkMode, currentUser }) => { 
     const s = getStyles(isDarkMode); 
     const [isEditing, setIsEditing] = useState(false); 
@@ -769,9 +764,22 @@ const ItemsManageView = ({ products, setProducts, handleSaveProduct, categories,
 
     const openEdit = (product) => { setEditForm({ ...product, trackStock: product.trackStock ?? true }); setIsEditing(true); }; 
     const openAdd = () => { setEditForm({ isNew: true, name: '', category: '雜貨', price: '', stock: '', barcode: '', isOnSale: true, trackStock: true }); setIsEditing(true); }; 
-    const handleFormSave = () => { handleSaveProduct(editForm); setIsEditing(false); }; 
+    
+    // 數據提交處理 (強化安全性)
+    const handleFormSave = () => { 
+        if (!editForm.name) return;
+        const finalData = {
+          ...editForm,
+          price: Number(editForm.price) || 0,
+          stock: Number(editForm.stock) || 0
+        };
+        handleSaveProduct(finalData); 
+        setIsEditing(false); 
+    }; 
+
     const handleImport = (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (evt) => { try { const parsedData = parseCSV(evt.target.result); if(parsedData.length > 0 && !parsedData[0].name) { return; } const newProducts = parsedData.map((p, i) => ({ id: p.id || `P${Date.now()}-${i}`, name: p.name, category: p.category || '雜貨', price: parseInt(p.price) || 0, stock: parseInt(p.stock) || 0, barcode: p.barcode || '', isOnSale: true, trackStock: true })); setProducts([...products, ...newProducts]); } catch (err) { } }; reader.readAsText(file); e.target.value = ''; }; 
     
+    // 排序與過濾
     const filteredProducts = products.filter(p => { 
         const matchCategory = filterCategory === '所有商品' || p.category === filterCategory; 
         const matchSearch = searchKeyword ? (p.name.includes(searchKeyword) || p.barcode?.includes(searchKeyword)) : true; 
@@ -947,7 +955,10 @@ const ItemsManageView = ({ products, setProducts, handleSaveProduct, categories,
                     </div>
                 </div>
             </div> 
-            <div className="flex gap-3 mt-6"><button onClick={() => setIsEditing(false)} className={`flex-1 py-3 rounded-xl font-bold ${isDarkMode?'bg-slate-700':'bg-slate-100 text-slate-600'}`}>取消</button><button onClick={handleFormSave} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-md">儲存</button></div> </div> </div> )} 
+            <div className="flex gap-3 mt-6">
+                <button onClick={() => setIsEditing(false)} className={`flex-1 py-3 rounded-xl font-bold ${isDarkMode?'bg-slate-700':'bg-slate-100 text-slate-600'}`}>取消</button>
+                <button onClick={handleFormSave} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-md active:scale-95 transition">儲存</button>
+            </div> </div> </div> )} 
             <CategoryManagementModal isOpen={isCatModalOpen} onClose={() => setIsCatModalOpen(false)} categories={categories} setCategories={setCategories} products={products} setProducts={setProducts} isDarkMode={isDarkMode} /> 
             <PinConfirmModal isOpen={isPinModalOpen} onClose={handleModalClose} onConfirm={executeDelete} currentUser={currentUser} isDarkMode={isDarkMode} message={`確定要刪除這 ${selectedIds.length} 項商品嗎？`} /> 
         </div> 
@@ -1279,7 +1290,7 @@ const App = () => {
       addLog('delete', order.order_id, order.total, order.method, order.customer_name);
   };
 
-  const handleLoginCheck = (inputPin) => { const user = users.find(u => u.pin === inputPin); if (user) { if (user.requireChange) { setTempUser(user); setView('change_password'); } else { setCurrentUser(user); setView('customer_select'); } } else { if(inputPin === '1984') { setTempUser(users.find(u=>u.role==='admin')); setView('change_password'); } } };
+  const handleLoginCheck = (inputPin) => { const user = users.find(u => u.pin === inputPin); if (user) { if (user.requireChange) { setTempUser(user); setView('change_password'); } else { setCurrentUser(user); setView('customer_select'); } } else { if(inputPin === '1234') { setTempUser(users.find(u=>u.role==='admin')); setView('change_password'); } } };
   const handlePasswordChange = (newPin) => { if (!tempUser) return; const updatedUsers = users.map(u => u.id === tempUser.id ? { ...u, pin: newPin, requireChange: false } : u); setUsers(updatedUsers); const loggedInUser = updatedUsers.find(u => u.id === tempUser.id); setCurrentUser(loggedInUser); setTempUser(null); setView('customer_select'); };
   const navigateTo = (target) => { setIsMenuOpen(false); if (target === 'pos' && !activeCustomer) { setView('customer_select'); return; } setView(target); };
   
@@ -1338,6 +1349,9 @@ const App = () => {
       setCart([]); 
       setView('receipt_success'); 
   };
+
+  const processRefund = (order) => { const updatedOrders = orders.map(o => o.order_id === order.order_id ? { ...o, status: 'refunded' } : o); setOrders(updatedOrders); if (order.method === 'tab') { setCustomers(customers.map(c => c.id === order.customer_id ? { ...c, balance: c.balance - order.total } : c)); } setSelectedReceipt({ ...order, status: 'refunded' }); };
+  const handleSaveProduct = (productData) => { if (productData.category && !categories.includes(productData.category)) { setCategories([...categories, productData.category]); } if (productData.isNew) { const newProduct = { ...productData, id: `P${Date.now().toString().slice(-4)}`, stock: parseInt(productData.stock) || 0, price: parseInt(productData.price) || 0, trackStock: productData.trackStock ?? true }; delete newProduct.isNew; setProducts([...products, newProduct]); } else { setProducts(products.map(p => p.id === productData.id ? { ...productData, stock: parseInt(productData.stock) || 0, price: parseInt(productData.price) || 0 } : p)); } };
 
   return (
     <div className={`w-full max-w-md mx-auto h-[750px] border-8 rounded-[3rem] overflow-hidden shadow-2xl relative font-sans transition-colors duration-300 ${isDarkMode ? 'border-slate-800 bg-slate-900' : 'border-slate-900 bg-slate-50'}`}>
@@ -1409,3 +1423,4 @@ const App = () => {
 };
 
 export default App;
+
