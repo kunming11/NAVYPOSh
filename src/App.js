@@ -10,7 +10,7 @@ import {
   Settings, Moon, Sun, LayoutGrid, List, UserCog, User,
   TrendingUp, CreditCard, DollarSign as DollarIcon, Building2,
   FileText as FileTextIcon, Eye, Tags, CheckSquare, Square, ListChecks, Check, History, BarChart2, Activity,
-  ClipboardList, Database, Info, FileJson, ArrowRightLeft
+  ClipboardList, Database, Info, FileJson, ArrowRightLeft, Infinity, UserCircle, Hash
 } from 'lucide-react';
 
 // ==========================================
@@ -40,10 +40,18 @@ const getDaysAgo = (days) => {
     return formatDateOnly(date);
 };
 
+// 生成隨機英數組合 (2位)
+const generateBatchPrefix = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    for (let i = 0; i < 2; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+};
+
 const exportToCSV = (data, filename) => {
-  if (!data || data.length === 0) {
-    return;
-  }
+  if (!data || data.length === 0) return;
   const headers = Object.keys(data[0]);
   const csvContent = [
     headers.join(','),
@@ -111,13 +119,13 @@ const parseCSV = (text) => {
 // ==========================================
 
 const INITIAL_PRODUCTS = [
-  { id: 'P001', name: '暈船藥', price: 150, category: '藥品', stock: 45, barcode: '88001', isOnSale: true },
-  { id: 'P002', name: '可口可樂', price: 30, category: '飲料', stock: 110, barcode: '88002', isOnSale: true },
-  { id: 'P003', name: '海鮮泡麵', price: 45, category: '食品', stock: 75, barcode: '88003', isOnSale: true },
-  { id: 'P004', name: '七星香菸', price: 125, category: '雜貨', stock: 190, barcode: '88004', isOnSale: true },
-  { id: 'P005', name: '打火機', price: 20, category: '雜貨', stock: 48, barcode: '88005', isOnSale: true },
-  { id: 'P006', name: '礦泉水', price: 20, category: '飲料', stock: 180, barcode: '88006', isOnSale: true },
-  { id: 'P008', name: '藍白拖', price: 100, category: '雜貨', stock: 20, barcode: '88007', isOnSale: true },
+  { id: 'P001', name: '暈船藥', price: 150, category: '藥品', stock: 45, barcode: '88001', isOnSale: true, trackStock: true },
+  { id: 'P002', name: '可口可樂', price: 30, category: '飲料', stock: 110, barcode: '88002', isOnSale: true, trackStock: true },
+  { id: 'P003', name: '海鮮泡麵', price: 45, category: '食品', stock: 75, barcode: '88003', isOnSale: true, trackStock: true },
+  { id: 'P004', name: '七星香菸', price: 125, category: '雜貨', stock: 190, barcode: '88004', isOnSale: true, trackStock: true },
+  { id: 'P005', name: '打火機', price: 20, category: '雜貨', stock: 48, barcode: '88005', isOnSale: true, trackStock: true },
+  { id: 'P006', name: '礦泉水', price: 20, category: '飲料', stock: 180, barcode: '88006', isOnSale: true, trackStock: true },
+  { id: 'P008', name: '藍白拖', price: 100, category: '雜貨', stock: 20, barcode: '88007', isOnSale: true, trackStock: true },
 ];
 
 const INITIAL_DEPARTMENTS = ['官員', '1隊', '2隊', '3隊', '4隊', '5隊', '6隊', '7隊'];
@@ -193,8 +201,6 @@ const Sidebar = ({ isOpen, setIsOpen, currentUser, onLogout, navigateTo, current
   const handleUserClick = () => {
     if (currentUser.role === 'admin') {
       onUserClick();
-    } else {
-      // Custom non-blocking message
     }
   };
   return (
@@ -263,7 +269,12 @@ const SimpleChart = ({ data, type, color, isDarkMode }) => {
             ) : (
                 <div className="absolute inset-0 z-10 flex items-end">
                     <svg className="w-full h-full" preserveAspectRatio="none" viewBox="0 0 100 100">
-                        <defs><linearGradient id="chartGradient" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="currentColor" stopOpacity="0.5" className={color.replace('bg-', 'text-')} /><stop offset="100%" stopColor="currentColor" stopOpacity="0" className={color.replace('bg-', 'text-')} /></linearGradient></defs>
+                        <defs>
+                            <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="currentColor" stopOpacity="0.5" className={color.replace('bg-', 'text-')} />
+                                <stop offset="100%" stopColor="currentColor" stopOpacity="0" className={color.replace('bg-', 'text-')} />
+                            </linearGradient>
+                        </defs>
                         <path d={getAreaPath()} fill="url(#chartGradient)" className="transition-all duration-500" />
                         <path d={getLinePath()} fill="none" stroke="currentColor" strokeWidth="0.5" className={`${color.replace('bg-', 'text-')} transition-all duration-500`} />
                     </svg>
@@ -343,7 +354,7 @@ const CategoryManagementModal = ({ isOpen, onClose, categories, setCategories, p
     const handleDelete = (cat) => { if (confirm(`刪除「${cat}」？\n注意：屬於此種類的商品將變更為「未分類」。`)) { setCategories(categories.filter(c => c !== cat)); setProducts(products.map(p => p.category === cat ? { ...p, category: '未分類' } : p)); } };
     const startEdit = (cat) => { setEditMode(cat); setEditValue(cat); };
     const saveEdit = (oldCat) => { if (editValue && editValue !== oldCat) { setCategories(categories.map(c => c === oldCat ? editValue : c)); setProducts(products.map(p => p.category === oldCat ? { ...p, category: editValue } : p)); } setEditMode(null); };
-    return ( <div className="absolute inset-0 z-50 bg-black/50 flex items-center justify-center p-4"> <div className={`${s.bgCard} w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80%]`}> <div className={`p-4 border-b ${isDarkMode ? 'border-slate-700' : 'border-slate-100'} flex justify-between items-center`}> <h3 className={`font-bold text-lg flex items-center gap-2 ${s.textMain}`}><Tags size={20} /> 種類管理</h3> <button onClick={onClose} className={`p-1 rounded-full ${s.textSub} hover:bg-slate-100/10`}><X /></button> </div> <div className="flex-1 overflow-y-auto p-4"> <div className="flex gap-2 mb-4"> <input value={newCat} onChange={e => setNewCat(e.target.value)} placeholder="新增種類" className={`flex-1 p-2 rounded-lg outline-none ${s.input}`} /> <button onClick={handleAdd} className="bg-blue-600 text-white px-4 rounded-lg font-bold">新增</button> </div> <div className="space-y-2"> {categories.map(cat => ( <div key={cat} className={`p-3 rounded-xl border flex justify-between items-center ${s.bgCard}`}> {editMode === cat ? ( <div className="flex gap-2 flex-1"> <input value={editValue} onChange={e => setEditValue(e.target.value)} className={`flex-1 p-1 rounded ${s.input} text-sm`} autoFocus /> <button onClick={() => saveEdit(cat)} className="text-green-500 font-bold px-2">OK</button> </div> ) : ( <span className={`font-bold ${s.textMain}`}>{cat}</span> )} <div className="flex gap-1"> {editMode !== cat && <button onClick={() => startEdit(cat)} className="p-2 text-slate-400 hover:text-blue-500"><Edit3 size={16} /></button>} <button onClick={() => handleDelete(cat)} className="p-2 text-slate-400 hover:text-red-500"><Trash2 size={16} /></button> </div> </div> ))} </div> </div> </div> </div> );
+    return ( <div className="absolute inset-0 z-50 bg-black/50 flex items-center justify-center p-4"> <div className={`${s.bgCard} w-full max-sm rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80%]`}> <div className={`p-4 border-b ${isDarkMode ? 'border-slate-700' : 'border-slate-100'} flex justify-between items-center`}> <h3 className={`font-bold text-lg flex items-center gap-2 ${s.textMain}`}><Tags size={20} /> 種類管理</h3> <button onClick={onClose} className={`p-1 rounded-full ${s.textSub} hover:bg-slate-100/10`}><X /></button> </div> <div className="flex-1 overflow-y-auto p-4"> <div className="flex gap-2 mb-4"> <input value={newCat} onChange={e => setNewCat(e.target.value)} placeholder="新增種類" className={`flex-1 p-2 rounded-lg outline-none ${s.input}`} /> <button onClick={handleAdd} className="bg-blue-600 text-white px-4 rounded-lg font-bold">新增</button> </div> <div className="space-y-2"> {categories.map(cat => ( <div key={cat} className={`p-3 rounded-xl border flex justify-between items-center ${s.bgCard}`}> {editMode === cat ? ( <div className="flex gap-2 flex-1"> <input value={editValue} onChange={e => setEditValue(e.target.value)} className={`flex-1 p-1 rounded ${s.input} text-sm`} autoFocus /> <button onClick={() => saveEdit(cat)} className="text-green-500 font-bold px-2">OK</button> </div> ) : ( <span className={`font-bold ${s.textMain}`}>{cat}</span> )} <div className="flex gap-1"> {editMode !== cat && <button onClick={() => startEdit(cat)} className="p-2 text-slate-400 hover:text-blue-500"><Edit3 size={16} /></button>} <button onClick={() => handleDelete(cat)} className="p-2 text-slate-400 hover:text-red-500"><Trash2 size={16} /></button> </div> </div> ))} </div> </div> </div> </div> );
 };
 
 // ==========================================
@@ -450,7 +461,7 @@ const SettingsView = ({ isDarkMode, setIsDarkMode, layoutMode, setLayoutMode, on
                 <div className={`${s.bgCard} rounded-xl overflow-hidden p-4`}>
                      <div className={`flex items-center gap-2 mb-3 ${s.textMain}`}><Info size={18} /><span className="font-bold">關於 NAVY-POS</span></div>
                      <div className="space-y-1 text-sm text-slate-500">
-                         <div>使用版本：20260115.02</div>
+                         <div>使用版本：20260116.01</div>
                          <div>開發者：何昆明</div>
                      </div>
                 </div>
@@ -478,7 +489,7 @@ const OperationLogView = ({ logs, onMenuClick, isDarkMode }) => {
         
         return (
             <div className="absolute inset-0 z-[70] bg-black/60 flex items-center justify-center p-4">
-                <div className={`${s.bgCard} w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90%]`}>
+                <div className={`${s.bgCard} w-full max-sm rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90%]`}>
                     <div className="p-4 border-b flex justify-between items-center">
                         <h3 className={`font-bold ${s.textMain} flex items-center gap-2`}><ArrowRightLeft size={18}/> 訂單修改比對</h3>
                         <button onClick={onClose} className={s.textSub}><X/></button>
@@ -657,7 +668,7 @@ const CustomerSelectView = ({ customers, setCustomers, departments, setDepartmen
         </div>
     );
 
-    return ( <div className={`flex flex-col h-full ${s.bgMain} transition-colors duration-300`}> <Header title={<HeaderContent />} onMenuClick={onMenuClick} isDarkMode={isDarkMode} rightElement={ <div className="flex gap-2"> {!isBatchMode && !isSearchOpen && ( <> <button onClick={() => setIsDeptModalOpen(true)} className={`p-2 rounded-full ${s.textSub} ${s.header} hover:text-blue-500`} title="管理部門"><Building2 size={20} /></button> <button onClick={() => exportToCSV(customers, 'crew_export')} className={`p-2 rounded-full ${s.textSub} ${s.header}`}><Download size={20} /></button> <button onClick={() => fileInputRef.current.click()} className={`p-2 rounded-full ${s.textSub} ${s.header}`}><Upload size={20} /></button> <input type="file" accept=".csv" ref={fileInputRef} onChange={handleImport} className="hidden" /> </> )} <button onClick={() => setIsBatchMode(!isBatchMode)} className={`p-2 rounded-full ${isBatchMode ? 'bg-blue-100 text-blue-600' : `${s.textSub} ${s.header}`}`} title="批次管理"> <ListChecks size={20} /> </button> {!isBatchMode && <button onClick={openAdd} className="p-2 bg-blue-600 text-white rounded-full"><Plus size={20} /></button>} </div> } /> <div className={`${s.header} px-4 pb-2 transition-colors duration-300`}> <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide"> <button onClick={() => setDeptFilter('全部')} className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap ${deptFilter === '全部' ? 'bg-blue-600 text-white' : `${s.bgMain} ${s.textSub}`}`}>全部</button> {departments.map(dept => ( <button key={dept} onClick={() => setDeptFilter(dept)} className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap ${deptFilter === dept ? 'bg-blue-600 text-white' : `${s.bgMain} ${s.textSub}`}`}>{dept}</button> ))} </div> </div> <div className="flex-1 overflow-y-auto p-4 space-y-3 pb-20"> {filtered.map(c => ( <div key={c.id} onClick={(e) => handleItemClick(c, e)} className={`w-full p-4 rounded-xl shadow-sm border flex items-center justify-between active:scale-[0.98] transition cursor-pointer group ${s.bgCard} ${s.hover} ${selectedIds.includes(c.id) ? s.selected : ''}`}> <div className="flex items-center gap-4"> {isBatchMode && ( <div className={`w-6 h-6 rounded border flex items-center justify-center ${selectedIds.includes(c.id) ? 'bg-blue-600 border-blue-600' : 'border-slate-400'}`}> {selectedIds.includes(c.id) && <Check size={16} className="text-white" />} </div> )} <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white ${['指揮部','輪機部','補給部','戰系部'].includes(c.dept)? 'bg-blue-500' : 'bg-slate-400'}`}>{c.dept?.[0] || '?'}</div> <div className="text-left"><div className={`font-bold text-lg ${s.textMain}`}>{c.name}</div><div className={`text-sm ${s.textSub}`}>{c.dept || '無部門'}</div></div> </div> {!isBatchMode && ( <div className="flex items-center gap-3"> <button onClick={(e) => handleViewHistory(c, e)} className={`p-2 rounded-full ${s.textSub} hover:bg-slate-200 hover:text-blue-600 transition`} title="檢視歷史紀錄"><Eye size={18} /></button> <button onClick={(e) => openEdit(c, e)} className={`p-2 rounded-full ${s.textSub} hover:bg-slate-200 hover:text-blue-600 transition`}><Edit3 size={18} /></button> <button onClick={(e) => handleDeleteClick(c.id, e)} className={`p-2 rounded-full ${s.textSub} hover:bg-red-100 hover:text-red-600 transition`}><Trash2 size={18} /></button> </div> )} </div> ))} </div> {isBatchMode && selectedIds.length > 0 && ( <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-4 bg-white shadow-xl p-2 rounded-full border border-slate-200 animate-in slide-in-from-bottom"> <button onClick={handleBatchDeleteClick} className="flex items-center gap-2 bg-red-600 text-white px-6 py-3 rounded-full font-bold shadow-md hover:bg-red-700 transition"> <Trash2 size={20} /> 刪除 ({selectedIds.length}) </button> </div> )} {isAddEditOpen && ( <div className="absolute inset-0 bg-black/50 z-50 flex items-center justify-center p-4"> <div className={`${s.bgCard} rounded-2xl w-full max-w-sm p-6 shadow-2xl`}> <h3 className={`text-xl font-bold mb-4 ${s.textMain}`}>{editForm ? '編輯人員' : '新增人員'}</h3> <div className="space-y-3"> <div><label className={`text-xs block mb-1 ${s.textSub}`}>姓名</label><input value={customerForm.name} onChange={e=>setCustomerForm({...customerForm, name: e.target.value})} className={`w-full p-3 rounded-lg outline-none ${s.input}`} /></div> <div><label className={`text-xs block mb-1 ${s.textSub}`}>部門</label><select value={customerForm.dept} onChange={e=>setCustomerForm({...customerForm, dept: e.target.value})} className={`w-full p-3 rounded-lg outline-none appearance-none ${s.input}`}><option value="">請選擇部門</option>{departments.map(d => <option key={d} value={d}>{d}</option>)}</select></div> </div> <div className="flex gap-3 mt-6"><button onClick={() => setIsAddEditOpen(false)} className={`flex-1 py-3 rounded-xl font-bold ${isDarkMode ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-600'}`}>取消</button><button onClick={handleSave} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-md">儲存</button></div> </div> </div> )} <PinConfirmModal isOpen={isPinModalOpen} onClose={handleModalClose} onConfirm={executeDelete} currentUser={currentUser} isDarkMode={isDarkMode} message={deleteTargetId === 'BATCH' ? `確定要刪除這 ${selectedIds.length} 位人員嗎？` : undefined} /> <DepartmentManagementModal isOpen={isDeptModalOpen} onClose={() => setIsDeptModalOpen(false)} departments={departments} setDepartments={setDepartments} customers={customers} setCustomers={setCustomers} isDarkMode={isDarkMode} /> </div> );
+    return ( <div className={`flex flex-col h-full ${s.bgMain} transition-colors duration-300`}> <Header title={<HeaderContent />} onMenuClick={onMenuClick} isDarkMode={isDarkMode} rightElement={ <div className="flex gap-2"> {!isBatchMode && !isSearchOpen && ( <> <button onClick={() => setIsDeptModalOpen(true)} className={`p-2 rounded-full ${s.textSub} ${s.header} hover:text-blue-500`} title="管理部門"><Building2 size={20} /></button> <button onClick={() => exportToCSV(customers, 'crew_export')} className={`p-2 rounded-full ${s.textSub} ${s.header}`}><Download size={20} /></button> <button onClick={() => fileInputRef.current.click()} className={`p-2 rounded-full ${s.textSub} ${s.header}`}><Upload size={20} /></button> <input type="file" accept=".csv" ref={fileInputRef} onChange={handleImport} className="hidden" /> </> )} <button onClick={() => setIsBatchMode(!isBatchMode)} className={`p-2 rounded-full ${isBatchMode ? 'bg-blue-100 text-blue-600' : `${s.textSub} ${s.header}`}`} title="批次管理"> <ListChecks size={20} /> </button> {!isBatchMode && <button onClick={openAdd} className="p-2 bg-blue-600 text-white rounded-full"><Plus size={20} /></button>} </div> } /> <div className={`${s.header} px-4 pb-2 transition-colors duration-300`}> <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide"> <button onClick={() => setDeptFilter('全部')} className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap ${deptFilter === '全部' ? 'bg-blue-600 text-white' : `${s.bgMain} ${s.textSub}`}`}>全部</button> {departments.map(dept => ( <button key={dept} onClick={() => setDeptFilter(dept)} className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap ${deptFilter === dept ? 'bg-blue-600 text-white' : `${s.bgMain} ${s.textSub}`}`}>{dept}</button> ))} </div> </div> <div className="flex-1 overflow-y-auto p-4 space-y-3 pb-20"> {filtered.map(c => ( <div key={c.id} onClick={(e) => handleItemClick(c, e)} className={`w-full p-4 rounded-xl shadow-sm border flex items-center justify-between active:scale-[0.98] transition cursor-pointer group ${s.bgCard} ${s.hover} ${selectedIds.includes(c.id) ? s.selected : ''}`}> <div className="flex items-center gap-4"> {isBatchMode && ( <div className={`w-6 h-6 rounded border flex items-center justify-center ${selectedIds.includes(c.id) ? 'bg-blue-600 border-blue-600' : 'border-slate-400'}`}> {selectedIds.includes(c.id) && <Check size={16} className="text-white" />} </div> )} <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white ${['指揮部','輪機部','補給部','戰系部'].includes(c.dept)? 'bg-blue-500' : 'bg-slate-400'}`}>{c.dept?.[0] || '?'}</div> <div className="text-left"><div className={`font-bold text-lg ${s.textMain}`}>{c.name}</div><div className={`text-sm ${s.textSub}`}>{c.dept || '無部門'}</div></div> </div> {!isBatchMode && ( <div className="flex items-center gap-3"> <button onClick={(e) => handleViewHistory(c, e)} className={`p-2 rounded-full ${s.textSub} hover:bg-slate-200 hover:text-blue-600 transition`} title="檢視歷史紀錄"><Eye size={18} /></button> <button onClick={(e) => openEdit(c, e)} className={`p-2 rounded-full ${s.textSub} hover:bg-slate-200 hover:text-blue-600 transition`}><Edit3 size={18} /></button> <button onClick={(e) => handleDeleteClick(c.id, e)} className={`p-2 rounded-full ${s.textSub} hover:bg-red-100 hover:text-red-600 transition`}><Trash2 size={18} /></button> </div> )} </div> ))} </div> {isBatchMode && selectedIds.length > 0 && ( <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-4 bg-white shadow-xl p-2 rounded-full border border-slate-200 animate-in slide-in-from-bottom"> <button onClick={handleBatchDeleteClick} className="flex items-center gap-2 bg-red-600 text-white px-6 py-3 rounded-full font-bold shadow-md hover:bg-red-700 transition"> <Trash2 size={20} /> 刪除 ({selectedIds.length}) </button> </div> )} {isAddEditOpen && ( <div className="absolute inset-0 bg-black/50 z-50 flex items-center justify-center p-4"> <div className={`${s.bgCard} rounded-2xl w-full max-sm p-6 shadow-2xl`}> <h3 className={`text-xl font-bold mb-4 ${s.textMain}`}>{editForm ? '編輯人員' : '新增人員'}</h3> <div className="space-y-3"> <div><label className={`text-xs block mb-1 ${s.textSub}`}>姓名</label><input value={customerForm.name} onChange={e=>setCustomerForm({...customerForm, name: e.target.value})} className={`w-full p-3 rounded-lg outline-none ${s.input}`} /></div> <div><label className={`text-xs block mb-1 ${s.textSub}`}>部門</label><select value={customerForm.dept} onChange={e=>setCustomerForm({...customerForm, dept: e.target.value})} className={`w-full p-3 rounded-lg outline-none appearance-none ${s.input}`}><option value="">請選擇部門</option>{departments.map(d => <option key={d} value={d}>{d}</option>)}</select></div> </div> <div className="flex gap-3 mt-6"><button onClick={() => setIsAddEditOpen(false)} className={`flex-1 py-3 rounded-xl font-bold ${isDarkMode ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-600'}`}>取消</button><button onClick={handleSave} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-md">儲存</button></div> </div> </div> )} <PinConfirmModal isOpen={isPinModalOpen} onClose={handleModalClose} onConfirm={executeDelete} currentUser={currentUser} isDarkMode={isDarkMode} message={deleteTargetId === 'BATCH' ? `確定要刪除這 ${selectedIds.length} 位人員嗎？` : undefined} /> <DepartmentManagementModal isOpen={isDeptModalOpen} onClose={() => setIsDeptModalOpen(false)} departments={departments} setDepartments={setDepartments} customers={customers} setCustomers={setCustomers} isDarkMode={isDarkMode} /> </div> );
 };
 
 const POSView = ({ activeCustomer, setView, products, categories, cart, addToCart, updateCartQty, removeFromCart, onMenuClick, isDarkMode, layoutMode }) => {
@@ -665,7 +676,7 @@ const POSView = ({ activeCustomer, setView, products, categories, cart, addToCar
     const cartTotal = cart.reduce((sum, i) => sum + (i.price * i.qty), 0); const cartCount = cart.reduce((sum, i) => sum + i.qty, 0);
     const filteredProducts = products.filter(p => { const matchCategory = filterCategory === '所有商品' || p.category === filterCategory; const matchSearch = searchKeyword ? (p.name.includes(searchKeyword) || p.barcode?.includes(searchKeyword)) : true; const matchOnSale = p.isOnSale === true; return matchCategory && matchSearch && matchOnSale; });
     const POSHeaderContent = () => ( <div className="flex items-center gap-2 w-full max-w-[200px] sm:max-w-xs transition-all duration-300"> {isSearchOpen ? ( <div className={`flex items-center rounded-lg px-2 w-full animate-in fade-in zoom-in duration-200 ${s.input}`}> <Search size={16} className="text-slate-400 shrink-0" /> <input autoFocus value={searchKeyword} onChange={(e) => setSearchKeyword(e.target.value)} placeholder="商品/條碼..." className="bg-transparent border-none outline-none text-sm p-2 w-full text-inherit placeholder-inherit" /> <button onClick={() => { setIsSearchOpen(false); setSearchKeyword(''); }} className="text-slate-400 p-1"><X size={16} /></button> </div> ) : ( <> <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className={`${s.input} text-sm font-bold py-1.5 px-3 rounded-lg outline-none cursor-pointer flex-1 truncate border-r-8 border-transparent`}> <option value="所有商品">所有商品</option> {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)} </select> <button onClick={() => setIsSearchOpen(true)} className={`p-2 rounded-lg transition shrink-0 ${s.input} hover:opacity-80`}><Search size={18} /></button> </> )} </div> );
-    return ( <div className={`flex flex-col h-full overflow-hidden ${s.bgMain} transition-colors duration-300`}> <Header title={<POSHeaderContent />} onMenuClick={onMenuClick} isDarkMode={isDarkMode} rightElement={ <div className="flex items-center"> <div className="text-xs mr-2 text-right hidden sm:block"> <div className={s.textSub}>客戶</div> <div className="font-bold text-blue-500">{activeCustomer?.name}</div> </div> <button onClick={() => setView('customer_select')} className={`font-bold text-sm px-3 py-1 rounded-lg bg-blue-500/10 text-blue-500`}>換人</button> </div> } /> <div className="flex-1 overflow-y-auto p-3"> {layoutMode === 'list' ? ( <div className="flex flex-col gap-2 pb-4"> {filteredProducts.map(p => { const inCart = cart.find(c => c.id === p.id); return ( <button key={p.id} onClick={() => addToCart(p)} disabled={p.stock <= 0} className={`flex justify-between items-center p-3 rounded-xl shadow-sm border active:border-blue-500 transition ${s.bgCard} ${s.hover}`}> <div className="flex items-center gap-3 text-left"> <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white text-xs ${p.stock < 10 ? 'bg-red-500' : 'bg-blue-500'}`}>{p.category[0]}</div> <div><div className={`font-bold ${s.textMain}`}>{p.name}</div><div className={`text-xs ${s.textSub}`}>${p.price} | 存: {p.stock}</div></div> </div> <div className="flex items-center gap-2"><div className="font-bold text-blue-500 text-lg">${p.price}</div>{inCart && <div className="bg-blue-600 text-white text-xs w-6 h-6 rounded-full flex items-center justify-center font-bold">{inCart.qty}</div>}</div> </button> ); })} </div> ) : ( <div className="grid grid-cols-2 gap-3 pb-4"> {filteredProducts.map(p => ( <button key={p.id} onClick={() => addToCart(p)} disabled={p.stock <= 0} className={`p-4 rounded-xl shadow-sm border flex flex-col items-center justify-center h-32 active:border-blue-500 relative overflow-hidden group ${s.bgCard} ${s.hover}`}> {p.stock <= 0 && <div className="absolute inset-0 bg-black/60 flex items-center justify-center font-bold text-white z-10">補貨中</div>} <div className={`font-bold text-lg mb-1 ${s.textMain}`}>{p.name}</div> <div className="text-blue-500 font-bold">${p.price}</div> <div className={`absolute top-2 right-2 text-[10px] ${s.textSub}`}>庫存 {p.stock}</div> {cart.find(c => c.id === p.id) && <div className="absolute top-2 left-2 bg-blue-600 text-white text-xs w-6 h-6 rounded-full flex items-center justify-center font-bold shadow-md">{cart.find(c => c.id === p.id).qty}</div>} </button> ))} </div> )} {filteredProducts.length === 0 && <div className={`col-span-2 text-center py-10 ${s.textSub}`}>找不到相符商品</div>} </div> {showCartDetail && ( <div className="absolute inset-0 bg-black/50 z-50 flex flex-col justify-end"> <div className={`${s.bgCard} rounded-t-2xl p-4 max-h-[80%] overflow-y-auto pb-8 shadow-2xl animate-in slide-in-from-bottom duration-200 border-none`} onClick={(e) => e.stopPropagation()}> <div className={`flex justify-between items-center mb-4 border-b pb-2 ${isDarkMode ? 'border-slate-700' : 'border-slate-100'}`}> <h3 className={`font-bold text-lg flex items-center gap-2 ${s.textMain}`}><ShoppingCart size={20}/> 購物車明細</h3> <button onClick={() => setShowCartDetail(false)} className={`p-2 rounded-full ${s.input}`}><X /></button> </div> {cart.length === 0 ? <p className={`text-center py-8 ${s.textSub}`}>購物車是空的</p> : cart.map(item => ( <div key={item.id} className={`flex justify-between items-center mb-4 p-3 border rounded-xl shadow-sm ${s.bgCard}`}> <div className="flex-1"><div className={`font-bold ${s.textMain}`}>{item.name}</div><div className={`text-xs ${s.textSub}`}>${item.price} / 個</div></div> <div className="flex items-center gap-3"> <button onClick={() => updateCartQty(item.id, -1)} className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${s.input}`}>-</button> <span className={`w-8 text-center font-bold text-xl ${s.textMain}`}>{item.qty}</span> <button onClick={() => updateCartQty(item.id, 1)} className="w-10 h-10 rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center font-bold hover:bg-blue-500/20">+</button> <div className="w-2"></div> <button onClick={() => removeFromCart(item.id)} className="w-10 h-10 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center hover:bg-red-500/20"><Trash2 size={18} /></button> </div> </div> )) } <div className={`mt-4 pt-4 border-t flex justify-between items-center font-bold text-xl ${s.textMain} ${isDarkMode ? 'border-slate-700' : 'border-slate-100'}`}><span>總計</span><span>${cartTotal}</span></div> <button onClick={() => { if(cart.length>0) setView('payment'); }} disabled={cart.length===0} className="w-full mt-6 bg-blue-600 text-white py-4 rounded-xl font-bold text-lg disabled:opacity-50 shadow-lg">去結帳</button> </div> </div> )} <div className={`${s.header} border-t p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] shrink-0 z-30`}> <div className="flex items-center justify-between mb-3 cursor-pointer" onClick={() => setShowCartDetail(!showCartDetail)}> <div className={`flex items-center gap-2 ${s.textSub}`}> <div className="relative"> <ShoppingCart /> {cartCount > 0 && <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">{cartCount}</span>} </div> <span className="font-bold text-sm whitespace-nowrap">查看明細 ({cartCount}件)</span> </div> <div className={`flex-1 mx-4 text-center px-2 py-1 bg-blue-500/10 rounded-lg text-blue-600 font-bold text-sm truncate`}> {activeCustomer?.name} </div> <div className={`text-2xl font-bold ${s.textMain}`}>${cartTotal}</div> </div> <button onClick={() => { if(cart.length > 0) setView('payment'); }} disabled={cart.length === 0} className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold text-lg shadow-lg active:scale-[0.98] transition disabled:opacity-50">{cart.length === 0 ? '請選擇商品' : '去結帳'}</button> </div> </div> );
+    return ( <div className={`flex flex-col h-full overflow-hidden ${s.bgMain} transition-colors duration-300`}> <Header title={<POSHeaderContent />} onMenuClick={onMenuClick} isDarkMode={isDarkMode} rightElement={ <div className="flex items-center"> <div className="text-xs mr-2 text-right hidden sm:block"> <div className={s.textSub}>客戶</div> <div className="font-bold text-blue-500">{activeCustomer?.name}</div> </div> <button onClick={() => setView('customer_select')} className={`font-bold text-sm px-3 py-1 rounded-lg bg-blue-500/10 text-blue-500`}>換人</button> </div> } /> <div className="flex-1 overflow-y-auto p-3"> {layoutMode === 'list' ? ( <div className="flex flex-col gap-2 pb-4"> {filteredProducts.map(p => { const inCart = cart.find(c => c.id === p.id); return ( <button key={p.id} onClick={() => addToCart(p)} disabled={p.trackStock && p.stock <= 0} className={`flex justify-between items-center p-3 rounded-xl shadow-sm border active:border-blue-500 transition ${s.bgCard} ${s.hover}`}> <div className="flex items-center gap-3 text-left"> <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white text-xs ${p.trackStock && p.stock < 10 ? 'bg-red-500' : 'bg-blue-500'}`}>{p.category[0]}</div> <div><div className={`font-bold ${s.textMain}`}>{p.name}</div><div className={`text-xs ${s.textSub}`}>${p.price} | 存: {p.trackStock ? p.stock : <span className="text-base leading-none">∞</span>}</div></div> </div> <div className="flex items-center gap-2"><div className="font-bold text-blue-500 text-lg">${p.price}</div>{inCart && <div className="bg-blue-600 text-white text-xs w-6 h-6 rounded-full flex items-center justify-center font-bold">{inCart.qty}</div>}</div> </button> ); })} </div> ) : ( <div className="grid grid-cols-2 gap-3 pb-4"> {filteredProducts.map(p => ( <button key={p.id} onClick={() => addToCart(p)} disabled={p.trackStock && p.stock <= 0} className={`p-4 rounded-xl shadow-sm border flex flex-col items-center justify-center h-32 active:border-blue-500 relative overflow-hidden group ${s.bgCard} ${s.hover}`}> {p.trackStock && p.stock <= 0 && <div className="absolute inset-0 bg-black/60 flex items-center justify-center font-bold text-white z-10">補貨中</div>} <div className={`font-bold text-lg mb-1 ${s.textMain}`}>{p.name}</div> <div className="text-blue-500 font-bold">${p.price}</div> <div className={`absolute top-2 right-2 text-[10px] ${s.textSub}`}>庫存 {p.trackStock ? p.stock : <span className="text-sm">∞</span>}</div> {cart.find(c => c.id === p.id) && <div className="absolute top-2 left-2 bg-blue-600 text-white text-xs w-6 h-6 rounded-full flex items-center justify-center font-bold shadow-md">{cart.find(c => c.id === p.id).qty}</div>} </button> ))} </div> )} {filteredProducts.length === 0 && <div className={`col-span-2 text-center py-10 ${s.textSub}`}>找不到相符商品</div>} </div> {showCartDetail && ( <div className="absolute inset-0 bg-black/50 z-50 flex flex-col justify-end"> <div className={`${s.bgCard} rounded-t-2xl p-4 max-h-[80%] overflow-y-auto pb-8 shadow-2xl animate-in slide-in-from-bottom duration-200 border-none`} onClick={(e) => e.stopPropagation()}> <div className={`flex justify-between items-center mb-4 border-b pb-2 ${isDarkMode ? 'border-slate-700' : 'border-slate-100'}`}> <h3 className={`font-bold text-lg flex items-center gap-2 ${s.textMain}`}><ShoppingCart size={20}/> 購物車明細</h3> <button onClick={() => setShowCartDetail(false)} className={`p-2 rounded-full ${s.input}`}><X /></button> </div> {cart.length === 0 ? <p className={`text-center py-8 ${s.textSub}`}>購物車是空的</p> : cart.map(item => ( <div key={item.id} className={`flex justify-between items-center mb-4 p-3 border rounded-xl shadow-sm ${s.bgCard}`}> <div className="flex-1"><div className={`font-bold ${s.textMain}`}>{item.name}</div><div className={`text-xs ${s.textSub}`}>${item.price} / 個</div></div> <div className="flex items-center gap-3"> <button onClick={() => updateCartQty(item.id, -1)} className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${s.input}`}>-</button> <span className={`w-8 text-center font-bold text-xl ${s.textMain}`}>{item.qty}</span> <button onClick={() => updateCartQty(item.id, 1)} className="w-10 h-10 rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center font-bold hover:bg-blue-500/20">+</button> <div className="w-2"></div> <button onClick={() => removeFromCart(item.id)} className="w-10 h-10 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center hover:bg-red-500/20"><Trash2 size={18} /></button> </div> </div> )) } <div className={`mt-4 pt-4 border-t flex justify-between items-center font-bold text-xl ${s.textMain} ${isDarkMode ? 'border-slate-700' : 'border-slate-100'}`}><span>總計</span><span>${cartTotal}</span></div> <button onClick={() => { if(cart.length>0) setView('payment'); }} disabled={cart.length===0} className="w-full mt-6 bg-blue-600 text-white py-4 rounded-xl font-bold text-lg disabled:opacity-50 shadow-lg">去結帳</button> </div> </div> )} <div className={`${s.header} border-t p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] shrink-0 z-30`}> <div className="flex items-center justify-between mb-3 cursor-pointer" onClick={() => setShowCartDetail(!showCartDetail)}> <div className={`flex items-center gap-2 ${s.textSub}`}> <div className="relative"> <ShoppingCart /> {cartCount > 0 && <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">{cartCount}</span>} </div> <span className="font-bold text-sm whitespace-nowrap">查看明細 ({cartCount}件)</span> </div> <div className={`flex-1 mx-4 text-center px-2 py-1 bg-blue-500/10 rounded-lg text-blue-600 font-bold text-sm truncate`}> {activeCustomer?.name} </div> <div className={`text-2xl font-bold ${s.textMain}`}>${cartTotal}</div> </div> <button onClick={() => { if(cart.length > 0) setView('payment'); }} disabled={cart.length === 0} className="w-full bg-blue-600 text-white py-4 rounded-xl font-bold text-lg shadow-lg active:scale-[0.98] transition disabled:opacity-50">{cart.length === 0 ? '請選擇商品' : '去結帳'}</button> </div> </div> );
 };
 
 const PaymentView = ({ cart, activeCustomer, processPayment, setView, isDarkMode }) => { const s = getStyles(isDarkMode); return ( <div className={`flex flex-col h-full ${s.bgMain} transition-colors duration-300`}> <div className={`${s.header} px-4 py-3 flex items-center gap-3 shadow-sm border-b`}> <button onClick={() => setView('pos')} className={`p-2 -ml-2 ${s.textSub}`}><ChevronLeft /></button> <span className={`font-bold text-lg ${s.textMain}`}>選擇付款方式</span> </div> <div className="p-6 flex-1 flex flex-col gap-4"> <div className={`${s.bgCard} p-6 rounded-2xl shadow-sm text-center mb-4`}> <div className={`${s.textSub} text-sm mb-1`}>應付金額</div> <div className={`text-4xl font-bold ${s.textMain}`}>${cart.reduce((s,i)=>s+(i.price*i.qty),0)}</div> <div className={`mt-4 pt-4 border-t border-dashed ${isDarkMode ? 'border-slate-700' : 'border-slate-200'} flex justify-between text-sm`}> <span className={s.textSub}>客戶</span><span className={`font-bold ${s.textMain}`}>{activeCustomer?.name}</span> </div> </div> <button onClick={() => processPayment('cash')} className={`flex items-center gap-4 p-5 border rounded-xl shadow-sm transition active:border-green-500 ${s.bgCard} ${s.hover}`}> <div className="w-12 h-12 bg-green-500/10 rounded-full flex items-center justify-center text-green-500"><DollarSign /></div> <div className="text-left"><div className={`font-bold text-lg ${s.textMain}`}>現金支付 (Cash)</div></div><ArrowRight className={`ml-auto ${s.textSub}`} /> </button> <button onClick={() => processPayment('tab')} className={`flex items-center gap-4 p-5 border rounded-xl shadow-sm transition active:border-orange-500 ${s.bgCard} ${s.hover}`}> <div className="w-12 h-12 bg-orange-500/10 rounded-full flex items-center justify-center text-orange-500"><FileText /></div> <div className="text-left"><div className={`font-bold text-lg ${s.textMain}`}>記帳/賒帳 (Tab)</div><div className={`text-sm ${s.textSub}`}>將紀錄於個人帳戶</div></div><ArrowRight className={`ml-auto ${s.textSub}`} /> </button> </div> </div> )};
@@ -681,10 +692,23 @@ const ReceiptDetailView = ({ selectedReceipt, processRefund, setView, onEditOrde
     const handleConfirmAction = () => { if (actionType === 'edit') { onEditOrder(selectedReceipt, editedItems); setIsEditMode(false); } else if (actionType === 'delete') { onDeleteOrder(selectedReceipt); setView('receipt_list'); } setIsPinModalOpen(false); };
     const triggerAction = (type) => { setActionType(type); setIsPinModalOpen(true); };
     const editedTotal = editedItems.reduce((sum, item) => sum + (item.price * item.qty), 0);
-    return ( <div className={`flex flex-col h-full ${s.bgMain} transition-colors duration-300`}> <div className={`${s.header} px-4 py-3 flex items-center gap-3 shadow-sm border-b`}> <button onClick={() => setView('receipt_list')} className={`p-2 -ml-2 ${s.textSub}`}><ChevronLeft /></button> <span className={`font-bold text-lg ${s.textMain}`}>交易詳情</span> </div> <div className="flex-1 overflow-y-auto p-4"> <div className={`${s.bgCard} p-6 rounded-2xl shadow-sm border relative overflow-hidden`}> {(selectedReceipt.status === 'refunded' || selectedReceipt.status === 'deleted') && <div className={`absolute top-5 right-5 border-2 px-2 font-bold -rotate-12 ${selectedReceipt.status === 'deleted' ? 'border-gray-500 text-gray-500' : 'border-red-500 text-red-500'}`}> {selectedReceipt.status === 'deleted' ? 'DELETED' : 'REFUNDED'} </div>} <div className="text-center border-b border-dashed border-slate-300 pb-4 mb-4"> <div className={`text-4xl font-bold ${s.textMain}`}> ${isEditMode ? editedTotal : selectedReceipt.total} </div> <div className={`text-sm mt-2 ${s.textSub}`}>{selectedReceipt.date}</div> </div> {isEditMode ? ( <div className="space-y-3"> {editedItems.map((item, idx) => ( <div key={idx} className="flex justify-between items-center"> <span className={s.textMain}>{item.name}</span> <div className="flex items-center gap-2"> <button onClick={() => handleQtyChange(idx, -1)} className={`p-1 rounded ${s.input}`}>-</button> <span className={`w-6 text-center ${s.textMain}`}>{item.qty}</span> <button onClick={() => handleQtyChange(idx, 1)} className={`p-1 rounded ${s.input}`}>+</button> </div> </div> ))} </div> ) : ( <div className="space-y-2"> {selectedReceipt.items.map((i, idx) => ( <div key={idx} className="flex justify-between text-sm"> <span className={s.textMain}>{i.name} x{i.qty}</span> <span className={s.textMain}>${i.price * i.qty}</span> </div> ))} </div> )} </div> {selectedReceipt.status === 'completed' && ( <div className="mt-6 flex gap-3"> {isEditMode ? ( <> <button onClick={() => setIsEditMode(false)} className={`flex-1 py-3 rounded-xl font-bold ${s.input}`}>取消</button> <button onClick={() => triggerAction('edit')} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-md">確認修改</button> </> ) : ( <> <button onClick={() => setIsEditMode(true)} className={`flex-1 py-3 border border-blue-500 text-blue-500 rounded-xl font-bold flex items-center justify-center gap-2`}> <Edit3 size={18} /> 修改 </button> <button onClick={() => triggerAction('delete')} className={`flex-1 py-3 border border-red-500 text-red-500 rounded-xl font-bold flex items-center justify-center gap-2`}> <Trash2 size={18} /> 刪除 </button> </> )} </div> )} </div> <PinConfirmModal isOpen={isPinModalOpen} onClose={() => setIsPinModalOpen(false)} onConfirm={handleConfirmAction} currentUser={currentUser} isDarkMode={isDarkMode} message={actionType === 'edit' ? '確定要修改此訂單嗎？' : '確定要刪除此訂單嗎？'} /> </div> );
+    return ( <div className={`flex flex-col h-full ${s.bgMain} transition-colors duration-300`}> <div className={`${s.header} px-4 py-3 flex items-center gap-3 shadow-sm border-b`}> <button onClick={() => setView('receipt_list')} className={`p-2 -ml-2 ${s.textSub}`}><ChevronLeft /></button> <span className={`font-bold text-lg ${s.textMain}`}>交易詳情</span> </div> <div className="flex-1 overflow-y-auto p-4"> <div className={`${s.bgCard} p-6 rounded-2xl shadow-sm border relative overflow-hidden`}> {(selectedReceipt.status === 'refunded' || selectedReceipt.status === 'deleted') && <div className={`absolute top-5 right-5 border-2 px-2 font-bold -rotate-12 ${selectedReceipt.status === 'deleted' ? 'border-gray-500 text-gray-500' : 'border-red-500 text-red-500'}`}> {selectedReceipt.status === 'deleted' ? 'DELETED' : 'REFUNDED'} </div>} <div className="text-center border-b border-dashed border-slate-300 pb-4 mb-4"> <div className={`text-4xl font-bold ${s.textMain}`}> ${isEditMode ? editedTotal : selectedReceipt.total} </div> <div className={`text-xs mt-2 ${s.textSub}`}>{selectedReceipt.date}</div> </div> 
+    {/* 新增收銀員與單號資訊 */}
+    <div className={`grid grid-cols-2 gap-2 mb-6 p-3 rounded-xl ${isDarkMode ? 'bg-slate-700/50' : 'bg-slate-50'}`}>
+        <div className="flex flex-col items-start">
+            <span className={`text-[10px] font-bold flex items-center gap-1 ${s.textSub}`}><UserCircle size={10}/> 收銀員</span>
+            <span className={`text-sm font-bold ${s.textMain}`}>{selectedReceipt.cashier}</span>
+        </div>
+        <div className="flex flex-col items-end">
+            <span className={`text-[10px] font-bold flex items-center gap-1 ${s.textSub}`}><Hash size={10}/> 收據號碼</span>
+            <span className={`text-sm font-bold font-mono ${s.textMain}`}>{selectedReceipt.order_id}</span>
+        </div>
+    </div>
+
+    {isEditMode ? ( <div className="space-y-3"> {editedItems.map((item, idx) => ( <div key={idx} className="flex justify-between items-center"> <span className={s.textMain}>{item.name}</span> <div className="flex items-center gap-2"> <button onClick={() => handleQtyChange(idx, -1)} className={`p-1 rounded ${s.input}`}>-</button> <span className={`w-6 text-center ${s.textMain}`}>{item.qty}</span> <button onClick={() => handleQtyChange(idx, 1)} className={`p-1 rounded ${s.input}`}>+</button> </div> </div> ))} </div> ) : ( <div className="space-y-2"> {selectedReceipt.items.map((i, idx) => ( <div key={idx} className="flex justify-between text-sm"> <span className={s.textMain}>{i.name} x{i.qty}</span> <span className={s.textMain}>${i.price * i.qty}</span> </div> ))} </div> )} </div> {selectedReceipt.status === 'completed' && ( <div className="mt-6 flex gap-3"> {isEditMode ? ( <> <button onClick={() => setIsEditMode(false)} className={`flex-1 py-3 rounded-xl font-bold ${s.input}`}>取消</button> <button onClick={() => triggerAction('edit')} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-md">確認修改</button> </> ) : ( <> <button onClick={() => setIsEditMode(true)} className={`flex-1 py-3 border border-blue-500 text-blue-500 rounded-xl font-bold flex items-center justify-center gap-2`}> <Edit3 size={18} /> 修改 </button> <button onClick={() => triggerAction('delete')} className={`flex-1 py-3 border border-red-500 text-red-500 rounded-xl font-bold flex items-center justify-center gap-2`}> <Trash2 size={18} /> 刪除 </button> </> )} </div> )} </div> <PinConfirmModal isOpen={isPinModalOpen} onClose={() => setIsPinModalOpen(false)} onConfirm={handleConfirmAction} currentUser={currentUser} isDarkMode={isDarkMode} message={actionType === 'edit' ? '確定要修改此訂單嗎？' : '確定要刪除此訂單嗎？'} /> </div> );
 };
 
-const ReceiptSuccessView = ({ activeCustomer, setView }) => ( <div className="h-full flex flex-col items-center justify-center bg-slate-50 p-6"> <div className="bg-white p-8 rounded-2xl shadow-lg w-full max-w-sm text-center"> <CheckCircle className="w-20 h-20 text-green-500 mx-auto mb-4" /> <h2 className="text-2xl font-bold text-slate-800 mb-6">交易完成</h2> <button onClick={() => setView('customer_select')} className="w-full bg-slate-200 text-slate-700 py-3 rounded-xl font-bold mb-3">回客戶列表</button> <button onClick={() => setView('pos')} className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold">繼續為 {activeCustomer?.name} 點餐</button> </div> </div> );
+const ReceiptSuccessView = ({ activeCustomer, setView }) => ( <div className="h-full flex flex-col items-center justify-center bg-slate-50 p-6"> <div className="bg-white p-8 rounded-2xl shadow-lg w-full max-w-sm text-center"> <CheckCircle className="w-20 h-20 text-green-500 mx-auto mb-4" /> <h2 className="text-2xl font-bold text-slate-800 mb-6">交易完成</h2> <button onClick={() => setView('customer_select')} className="w-full bg-slate-200 text-slate-700 py-3 rounded-xl font-bold mb-3">回客戶列表</button> <button onClick={() => setView('pos')} className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold">繼續為 {activeCustomer?.name}點餐</button> </div> </div> );
 
 const ItemsManageView = ({ products, setProducts, handleSaveProduct, categories, setCategories, onMenuClick, isDarkMode, currentUser }) => { 
     const s = getStyles(isDarkMode); 
@@ -712,16 +736,16 @@ const ItemsManageView = ({ products, setProducts, handleSaveProduct, categories,
         }
     };
 
-    const openEdit = (product) => { setEditForm({ ...product }); setIsEditing(true); }; 
-    const openAdd = () => { setEditForm({ isNew: true, name: '', category: '雜貨', price: '', stock: '', barcode: '' }); setIsEditing(true); }; 
+    const openEdit = (product) => { setEditForm({ ...product, trackStock: product.trackStock ?? true }); setIsEditing(true); }; 
+    const openAdd = () => { setEditForm({ isNew: true, name: '', category: '雜貨', price: '', stock: '', barcode: '', isOnSale: true, trackStock: true }); setIsEditing(true); }; 
     const handleFormSave = () => { handleSaveProduct(editForm); setIsEditing(false); }; 
-    const handleImport = (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (evt) => { try { const parsedData = parseCSV(evt.target.result); if(parsedData.length > 0 && !parsedData[0].name) { return; } const newProducts = parsedData.map((p, i) => ({ id: p.id || `P${Date.now()}-${i}`, name: p.name, category: p.category || '雜貨', price: parseInt(p.price) || 0, stock: parseInt(p.stock) || 0, barcode: p.barcode || '', isOnSale: true })); setProducts([...products, ...newProducts]); } catch (err) { } }; reader.readAsText(file); e.target.value = ''; }; 
+    const handleImport = (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (evt) => { try { const parsedData = parseCSV(evt.target.result); if(parsedData.length > 0 && !parsedData[0].name) { return; } const newProducts = parsedData.map((p, i) => ({ id: p.id || `P${Date.now()}-${i}`, name: p.name, category: p.category || '雜貨', price: parseInt(p.price) || 0, stock: parseInt(p.stock) || 0, barcode: p.barcode || '', isOnSale: true, trackStock: true })); setProducts([...products, ...newProducts]); } catch (err) { } }; reader.readAsText(file); e.target.value = ''; }; 
     
     const filteredProducts = products.filter(p => { 
         const matchCategory = filterCategory === '所有商品' || p.category === filterCategory; 
         const matchSearch = searchKeyword ? (p.name.includes(searchKeyword) || p.barcode?.includes(searchKeyword)) : true; 
         return matchCategory && matchSearch; 
-    }); 
+    }).sort((a, b) => (b.isOnSale ? 1 : 0) - (a.isOnSale ? 1 : 0)); 
     
     const handleBatchDeleteClick = () => {
         if (selectedIds.length === 0) return;
@@ -732,6 +756,12 @@ const ItemsManageView = ({ products, setProducts, handleSaveProduct, categories,
     const handleBatchToggleSale = (status) => {
         if (selectedIds.length === 0) return;
         setProducts(products.map(p => selectedIds.includes(p.id) ? { ...p, isOnSale: status } : p));
+        setIsBatchMode(false);
+    };
+
+    const handleBatchToggleStockTracking = (status) => {
+        if (selectedIds.length === 0) return;
+        setProducts(products.map(p => selectedIds.includes(p.id) ? { ...p, trackStock: status } : p));
         setIsBatchMode(false);
     };
 
@@ -808,21 +838,80 @@ const ItemsManageView = ({ products, setProducts, handleSaveProduct, categories,
                         </div>
                     </div> 
                     <div className="flex items-center gap-4">
-                        <div className={`text-sm font-bold ${p.stock < 20 ? 'text-red-500' : 'text-green-500'}`}>庫存: {p.stock}</div>
+                        <div className={`text-sm font-bold ${p.trackStock && p.stock < 20 ? 'text-red-500' : 'text-green-500'}`}>
+                            庫存: {p.trackStock ? p.stock : <span className="text-xl leading-none">∞</span>}
+                        </div>
                         {!isBatchMode && <button onClick={(e) => { e.stopPropagation(); openEdit(p); }} className={`p-2 rounded-full ${s.textSub} ${s.hover}`}><Edit3 size={18} /></button>}
                     </div> 
                 </div> 
             ))} </div> 
 
-            {isBatchMode && selectedIds.length > 0 && ( <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 bg-white shadow-xl p-2 rounded-full border border-slate-200 animate-in slide-in-from-bottom"> <button onClick={() => handleBatchToggleSale(true)} className="bg-green-600 text-white px-4 py-2 rounded-full font-bold shadow-md hover:bg-green-700 transition text-sm"> 上架 </button> <button onClick={() => handleBatchToggleSale(false)} className="bg-gray-500 text-white px-4 py-2 rounded-full font-bold shadow-md hover:bg-gray-600 transition text-sm"> 停售 </button> <button onClick={handleBatchDeleteClick} className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-full font-bold shadow-md hover:bg-red-700 transition text-sm"> <Trash2 size={16} /> 刪除 ({selectedIds.length}) </button> </div> )} 
-            {isEditing && ( <div className="absolute inset-0 bg-black/50 z-50 flex items-center justify-center p-4"> <div className={`${s.bgCard} rounded-2xl w-full max-w-sm p-6 shadow-2xl`}> <h3 className={`text-xl font-bold mb-4 ${s.textMain}`}>{editForm.isNew ? '新增商品' : '編輯商品'}</h3> <div className="space-y-3"> <input value={editForm.name} onChange={e=>setEditForm({...editForm, name: e.target.value})} className={`w-full p-3 rounded-lg outline-none ${s.input}`} placeholder="名稱" /> <div className="flex gap-3"><input list="cat-opts" value={editForm.category} onChange={e=>setEditForm({...editForm, category: e.target.value})} className={`w-full p-3 rounded-lg outline-none ${s.input}`} placeholder="種類" /><datalist id="cat-opts">{categories.map(c=><option key={c} value={c}/>)}</datalist><input type="number" value={editForm.price} onChange={e=>setEditForm({...editForm, price: e.target.value})} className={`w-full p-3 rounded-lg outline-none ${s.input}`} placeholder="$" /></div> <div className="flex gap-3"><input type="number" value={editForm.stock} onChange={e=>setEditForm({...editForm, stock: e.target.value})} className={`w-full p-3 rounded-lg outline-none ${s.input}`} placeholder="庫存" /><input value={editForm.barcode} onChange={e=>setEditForm({...editForm, barcode: e.target.value})} className={`w-full p-3 rounded-lg outline-none ${s.input}`} placeholder="條碼" /></div> 
-            <div className="flex items-center gap-2 cursor-pointer" onClick={() => setEditForm({...editForm, isOnSale: !editForm.isOnSale})}>
-                <div className={`w-5 h-5 border rounded flex items-center justify-center ${editForm.isOnSale ? 'bg-blue-600 border-blue-600' : 'border-slate-400'}`}>
-                    {editForm.isOnSale && <Check size={14} className="text-white" />}
+            {isBatchMode && selectedIds.length > 0 && ( 
+                <div className="absolute bottom-6 left-4 right-4 flex flex-col gap-2 bg-white shadow-2xl p-4 rounded-2xl border border-slate-200 animate-in slide-in-from-bottom">
+                    <div className="flex justify-between items-center mb-2 px-2">
+                        <span className="text-sm font-bold text-slate-600">批次操作 ({selectedIds.length})</span>
+                        <button onClick={() => setIsBatchMode(false)} className="text-slate-400"><X size={16}/></button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                        <button onClick={() => handleBatchToggleSale(true)} className="bg-green-600 text-white py-2 rounded-lg font-bold text-sm shadow-sm">上架</button>
+                        <button onClick={() => handleBatchToggleSale(false)} className="bg-gray-500 text-white py-2 rounded-lg font-bold text-sm shadow-sm">停售</button>
+                        <button onClick={() => handleBatchToggleStockTracking(true)} className="bg-blue-600 text-white py-2 rounded-lg font-bold text-sm shadow-sm">啟用追蹤</button>
+                        <button onClick={() => handleBatchToggleStockTracking(false)} className="bg-orange-500 text-white py-2 rounded-lg font-bold text-sm shadow-sm">關閉追蹤</button>
+                    </div>
+                    <button onClick={handleBatchDeleteClick} className="w-full bg-red-50 text-red-600 py-2 rounded-lg font-bold text-sm border border-red-100 mt-1 flex items-center justify-center gap-1"> <Trash2 size={16} /> 刪除選取項 </button>
+                </div> 
+            )} 
+            
+            {isEditing && ( <div className="absolute inset-0 bg-black/50 z-50 flex items-center justify-center p-4"> <div className={`${s.bgCard} rounded-2xl w-full max-w-sm p-6 shadow-2xl overflow-y-auto max-h-[90%]`}> <h3 className={`text-xl font-bold mb-4 ${s.textMain}`}>{editForm.isNew ? '新增商品' : '編輯商品'}</h3> 
+            <div className="space-y-4"> 
+                <div>
+                    <label className={`text-[10px] font-bold uppercase tracking-wider mb-1 block ${s.textSub}`}>商品名稱</label>
+                    <input value={editForm.name} onChange={e=>setEditForm({...editForm, name: e.target.value})} className={`w-full p-3 rounded-lg outline-none ${s.input}`} placeholder="輸入名稱" />
                 </div>
-                <span className={`text-sm ${s.textMain}`}>目前販售中</span>
-            </div>
-            </div> <div className="flex gap-3 mt-6"><button onClick={() => setIsEditing(false)} className={`flex-1 py-3 rounded-xl font-bold ${isDarkMode?'bg-slate-700':'bg-slate-100 text-slate-600'}`}>取消</button><button onClick={handleFormSave} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-md">儲存</button></div> </div> </div> )} 
+                
+                <div className="grid grid-cols-2 gap-3">
+                    <div>
+                        <label className={`text-[10px] font-bold uppercase tracking-wider mb-1 block ${s.textSub}`}>種類</label>
+                        <input list="cat-opts" value={editForm.category} onChange={e=>setEditForm({...editForm, category: e.target.value})} className={`w-full p-3 rounded-lg outline-none ${s.input}`} placeholder="選擇或輸入" />
+                        <datalist id="cat-opts">{categories.map(c=><option key={c} value={c}/>)}</datalist>
+                    </div>
+                    <div>
+                        <label className={`text-[10px] font-bold uppercase tracking-wider mb-1 block ${s.textSub}`}>價格 ($)</label>
+                        <input type="number" value={editForm.price} onChange={e=>setEditForm({...editForm, price: e.target.value})} className={`w-full p-3 rounded-lg outline-none ${s.input}`} placeholder="0" />
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                    <div>
+                        <label className={`text-[10px] font-bold uppercase tracking-wider mb-1 block ${s.textSub}`}>庫存數量</label>
+                        <input type="number" value={editForm.stock} disabled={!editForm.trackStock} onChange={e=>setEditForm({...editForm, stock: e.target.value})} className={`w-full p-3 rounded-lg outline-none ${s.input} ${!editForm.trackStock ? 'opacity-50 cursor-not-allowed' : ''}`} placeholder="0" />
+                    </div>
+                    <div>
+                        <label className={`text-[10px] font-bold uppercase tracking-wider mb-1 block ${s.textSub}`}>條碼 (選填)</label>
+                        <input value={editForm.barcode} onChange={e=>setEditForm({...editForm, barcode: e.target.value})} className={`w-full p-3 rounded-lg outline-none ${s.input}`} placeholder="掃描或輸入" />
+                    </div>
+                </div>
+
+                <div className={`p-4 rounded-xl border ${isDarkMode ? 'border-slate-700 bg-slate-800/50' : 'border-slate-100 bg-slate-50'} space-y-3`}>
+                    <div className="flex items-center justify-between cursor-pointer" onClick={() => setEditForm({...editForm, trackStock: !editForm.trackStock})}>
+                        <div className="flex items-center gap-2">
+                            <div className={`w-5 h-5 border rounded flex items-center justify-center transition-colors ${editForm.trackStock ? 'bg-blue-600 border-blue-600' : 'border-slate-400 bg-white'}`}>
+                                {editForm.trackStock && <Check size={14} className="text-white" />}
+                            </div>
+                            <span className={`text-sm font-bold ${s.textMain}`}>啟用庫存追蹤</span>
+                        </div>
+                        {!editForm.trackStock && <Infinity size={18} className="text-orange-500" />}
+                    </div>
+
+                    <div className="flex items-center gap-2 cursor-pointer pt-2 border-t border-slate-200/50" onClick={() => setEditForm({...editForm, isOnSale: !editForm.isOnSale})}>
+                        <div className={`w-5 h-5 border rounded flex items-center justify-center transition-colors ${editForm.isOnSale ? 'bg-green-600 border-green-600' : 'border-slate-400 bg-white'}`}>
+                            {editForm.isOnSale && <Check size={14} className="text-white" />}
+                        </div>
+                        <span className={`text-sm font-bold ${s.textMain}`}>目前上架中</span>
+                    </div>
+                </div>
+            </div> 
+            <div className="flex gap-3 mt-6"><button onClick={() => setIsEditing(false)} className={`flex-1 py-3 rounded-xl font-bold ${isDarkMode?'bg-slate-700':'bg-slate-100 text-slate-600'}`}>取消</button><button onClick={handleFormSave} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-md">儲存</button></div> </div> </div> )} 
             <CategoryManagementModal isOpen={isCatModalOpen} onClose={() => setIsCatModalOpen(false)} categories={categories} setCategories={setCategories} products={products} setProducts={setProducts} isDarkMode={isDarkMode} /> 
             <PinConfirmModal isOpen={isPinModalOpen} onClose={handleModalClose} onConfirm={executeDelete} currentUser={currentUser} isDarkMode={isDarkMode} message={`確定要刪除這 ${selectedIds.length} 項商品嗎？`} /> 
         </div> 
@@ -841,9 +930,7 @@ const DashboardView = ({ orders, customers, onMenuClick, isDarkMode }) => {
     
     const handleRefresh = () => {
         setIsRefreshing(true);
-        setTimeout(() => {
-            setIsRefreshing(false);
-        }, 500);
+        setTimeout(() => setIsRefreshing(false), 500);
     };
 
     const stats = useMemo(() => {
@@ -1061,10 +1148,15 @@ const App = () => {
     return saved ? JSON.parse(saved) : INITIAL_DEPARTMENTS;
   });
 
-  const [logs, setLogs] = useState(() => { const saved = localStorage.getItem('pos_logs'); return saved ? JSON.parse(saved) : MOCK_LOGS; });
+  const [logs, setLogs] = useState(() => { 
+      const saved = localStorage.getItem('pos_logs'); 
+      return saved ? JSON.parse(saved) : MOCK_LOGS; 
+  });
 
-  const [cart, setCart] = useState([]);
-  const [selectedReceipt, setSelectedReceipt] = useState(null);
+  // 收據字首狀態
+  const [batchPrefix, setBatchPrefix] = useState(() => {
+      return localStorage.getItem('pos_batch_prefix') || "";
+  });
 
   useEffect(() => { localStorage.setItem('pos_users', JSON.stringify(users)); }, [users]);
   useEffect(() => { localStorage.setItem('pos_products', JSON.stringify(products)); }, [products]);
@@ -1073,6 +1165,7 @@ const App = () => {
   useEffect(() => { localStorage.setItem('pos_categories', JSON.stringify(categories)); }, [categories]);
   useEffect(() => { localStorage.setItem('pos_departments', JSON.stringify(departments)); }, [departments]);
   useEffect(() => { localStorage.setItem('pos_logs', JSON.stringify(logs)); }, [logs]);
+  useEffect(() => { localStorage.setItem('pos_batch_prefix', batchPrefix); }, [batchPrefix]);
 
   const addLog = (type, orderId, total, method, customerName, details = null) => {
       const newLog = {
@@ -1103,6 +1196,7 @@ const App = () => {
                   setCategories(parsed.data.categories);
                   setDepartments(parsed.data.departments);
                   setLogs(parsed.data.logs || []);
+                  if (parsed.data.prefix) setBatchPrefix(parsed.data.prefix);
               }
           } catch (e) { }
       };
@@ -1111,10 +1205,10 @@ const App = () => {
 
   const handleExportBackup = () => {
       const backupData = {
-          version: "20260115.01",
+          version: "20260116.01",
           timestamp: Date.now(),
           device_id: currentUser?.name || 'unknown',
-          data: { users, products, customers, orders, categories, departments, logs }
+          data: { users, products, customers, orders, categories, departments, logs, prefix: batchPrefix }
       };
       exportToJson(backupData, `POS_Backup_${formatDateOnly(new Date())}`);
   };
@@ -1177,9 +1271,16 @@ const App = () => {
   const removeFromCart = (id) => { setCart(cart.filter(i => i.id !== id)); };
   
   const processPayment = (method) => { 
-      const nextId = String(orders.length + 1).padStart(4, '0');
+      // 邏輯更新：檢查字首，若無則生成
+      let currentPrefix = batchPrefix;
+      if (!currentPrefix) {
+          currentPrefix = generateBatchPrefix();
+          setBatchPrefix(currentPrefix);
+      }
+
+      const nextSeq = String(orders.length + 1).padStart(5, '0');
       const newOrder = { 
-          order_id: `#${nextId}`, 
+          order_id: `${currentPrefix}-#${nextSeq}`, 
           date: formatDateTime(new Date()), 
           cashier: currentUser.name, 
           items: cart, 
@@ -1189,7 +1290,10 @@ const App = () => {
           customer_name: activeCustomer.name, 
           status: 'completed' 
       }; 
-      setProducts(products.map(p => { const cartItem = cart.find(c => c.id === p.id); return cartItem ? { ...p, stock: p.stock - cartItem.qty } : p; })); 
+      setProducts(products.map(p => { 
+          const cartItem = cart.find(c => c.id === p.id); 
+          return (cartItem && p.trackStock) ? { ...p, stock: p.stock - cartItem.qty } : p; 
+      })); 
       if (method === 'tab') { setCustomers(customers.map(c => c.id === activeCustomer.id ? { ...c, balance: c.balance + newOrder.total } : c)); } 
       setOrders([newOrder, ...orders]); 
       setCart([]); 
@@ -1197,7 +1301,10 @@ const App = () => {
   };
 
   const processRefund = (order) => { const updatedOrders = orders.map(o => o.order_id === order.order_id ? { ...o, status: 'refunded' } : o); setOrders(updatedOrders); if (order.method === 'tab') { setCustomers(customers.map(c => c.id === order.customer_id ? { ...c, balance: c.balance - order.total } : c)); } setSelectedReceipt({ ...order, status: 'refunded' }); };
-  const handleSaveProduct = (productData) => { if (productData.category && !categories.includes(productData.category)) { setCategories([...categories, productData.category]); } if (productData.isNew) { const newProduct = { ...productData, id: `P${Date.now().toString().slice(-4)}`, stock: parseInt(productData.stock) || 0, price: parseInt(productData.price) || 0 }; delete newProduct.isNew; setProducts([...products, newProduct]); } else { setProducts(products.map(p => p.id === productData.id ? { ...productData, stock: parseInt(productData.stock) || 0, price: parseInt(productData.price) || 0 } : p)); } };
+  const handleSaveProduct = (productData) => { if (productData.category && !categories.includes(productData.category)) { setCategories([...categories, productData.category]); } if (productData.isNew) { const newProduct = { ...productData, id: `P${Date.now().toString().slice(-4)}`, stock: parseInt(productData.stock) || 0, price: parseInt(productData.price) || 0, trackStock: productData.trackStock ?? true }; delete newProduct.isNew; setProducts([...products, newProduct]); } else { setProducts(products.map(p => p.id === productData.id ? { ...productData, stock: parseInt(productData.stock) || 0, price: parseInt(productData.price) || 0 } : p)); } };
+
+  const [cart, setCart] = useState([]);
+  const [selectedReceipt, setSelectedReceipt] = useState(null);
 
   return (
     <div className={`w-full max-w-md mx-auto h-[750px] border-8 rounded-[3rem] overflow-hidden shadow-2xl relative font-sans transition-colors duration-300 ${isDarkMode ? 'border-slate-800 bg-slate-900' : 'border-slate-900 bg-slate-50'}`}>
