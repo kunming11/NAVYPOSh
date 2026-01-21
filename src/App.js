@@ -665,9 +665,69 @@ const CustomerSelectView = ({ customers, setCustomers, departments, setDepartmen
     const handleSave = () => { if (!customerForm.name) return; if (editForm) { setCustomers(customers.map(c => c.id === editForm.id ? { ...c, ...customerForm } : c)); } else { const newC = { id: `C${Date.now().toString().slice(-4)}`, name: customerForm.name, dept: customerForm.dept, balance: 0 }; setCustomers([...customers, newC]); } setIsAddEditOpen(false); };
     const handleDeleteClick = (id, e) => { e.stopPropagation(); setDeleteTargetId(id); setIsPinModalOpen(true); };
     const handleBatchDeleteClick = () => { if (selectedIds.length === 0) return; setDeleteTargetId('BATCH'); setIsPinModalOpen(true); };
-    const executeDelete = () => { if (deleteTargetId === 'BATCH') { setCustomers(customers.filter(c => !selectedIds.includes(c.id))); setIsBatchMode(false); } else { setCustomers(customers.filter(c => c.id !== deleteTargetId)); } setDeleteTargetId(null); };
+    // 請替換 CustomerSelectView 組件內對應的 executeDelete 函式
+
+const executeDelete = () => {
+    if (deleteTargetId === 'BATCH') {
+        // 執行批次刪除
+        setCustomers(prev => prev.filter(c => !selectedIds.includes(c.id)));
+        
+        // [修正關鍵]：刪除後必須立刻清空選取狀態，避免 ID 殘留影響新資料
+        setSelectedIds([]); 
+        setIsBatchMode(false); 
+    } else {
+        // 執行單筆刪除
+        setCustomers(prev => prev.filter(c => c.id !== deleteTargetId));
+    }
+    setDeleteTargetId(null);
+    setIsPinModalOpen(false); // 確保 Modal 關閉
+};
     const handleViewHistory = (customer, e) => { e.stopPropagation(); setViewingCustomer(customer); setView('customer_history'); };
-    const handleImport = (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (evt) => { try { const parsedData = parseCSV(evt.target.result); if(parsedData.length > 0 && !parsedData[0].name) { return; } const newCustomers = parsedData.map((c, i) => ({ id: c.id || `C${Date.now()}-${i}`, name: c.name, dept: c.dept, balance: parseInt(c.balance) || 0 })); setCustomers([...customers, ...newCustomers]); } catch (err) { } }; reader.readAsText(file); e.target.value = ''; };
+    // 請替換 CustomerSelectView 內的 handleImport
+const handleImport = (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    try {
+      const parsedData = parseCSV(evt.target.result);
+      if (parsedData.length > 0 && !parsedData[0].name) { return; }
+
+      const existingNames = new Set(customers.map(c => c.name.trim()));
+      const newCustomers = [];
+      let duplicateCount = 0;
+
+      parsedData.forEach((c, i) => {
+        const cName = c.name ? c.name.trim() : '';
+        if (!cName) return;
+
+        if (existingNames.has(cName)) {
+          duplicateCount++;
+          return;
+        }
+
+        newCustomers.push({
+          id: c.id || `C${Date.now()}-${i}`, // 確保 ID 唯一性
+          name: cName,
+          dept: c.dept || '未知',
+          balance: parseInt(c.balance) || 0
+        });
+        existingNames.add(cName);
+      });
+
+      if (newCustomers.length > 0) {
+        setCustomers(prev => [...prev, ...newCustomers]);
+        alert(`成功匯入 ${newCustomers.length} 位人員。\n已略過 ${duplicateCount} 位重複名稱的人員。`);
+      } else {
+        alert("無新增人員，所有人員名稱皆已存在。");
+      }
+    } catch (err) {
+      alert("匯入失敗");
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+};
     const handleModalClose = () => { setIsPinModalOpen(false); setDeleteTargetId(null); };
 
     const HeaderContent = () => (
@@ -777,8 +837,62 @@ const ItemsManageView = ({ products, setProducts, handleSaveProduct, categories,
         setIsEditing(false); 
     }; 
 
-    const handleImport = (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (evt) => { try { const parsedData = parseCSV(evt.target.result); if(parsedData.length > 0 && !parsedData[0].name) { return; } const newProducts = parsedData.map((p, i) => ({ id: p.id || `P${Date.now()}-${i}`, name: p.name, category: p.category || '雜貨', price: parseInt(p.price) || 0, stock: parseInt(p.stock) || 0, barcode: p.barcode || '', isOnSale: true, trackStock: true })); setProducts([...products, ...newProducts]); } catch (err) { } }; reader.readAsText(file); e.target.value = ''; }; 
-    
+    // 請替換 ItemsManageView 內的 handleImport
+const handleImport = (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    try {
+      const parsedData = parseCSV(evt.target.result);
+      if (parsedData.length > 0 && !parsedData[0].name) { return; }
+      
+      // 1. 取得目前所有商品的名稱 Set，用於快速比對
+      const existingNames = new Set(products.map(p => p.name.trim()));
+      const newProducts = [];
+      let duplicateCount = 0;
+
+      parsedData.forEach((p, i) => {
+        const pName = p.name ? p.name.trim() : '';
+        if (!pName) return;
+
+        // 2. 比對名稱是否重複
+        if (existingNames.has(pName)) {
+          duplicateCount++;
+          return; // 跳過此筆
+        }
+
+        // 3. 產生新物件
+        newProducts.push({
+          id: p.id || `P${Date.now()}-${i}`,
+          name: pName,
+          category: p.category || '雜貨',
+          price: parseInt(p.price) || 0,
+          stock: parseInt(p.stock) || 0,
+          barcode: p.barcode || '',
+          isOnSale: true,
+          trackStock: true
+        });
+        
+        // 加入 Set 避免同一個 CSV 內有重複名稱
+        existingNames.add(pName);
+      });
+
+      if (newProducts.length > 0) {
+        setProducts(prev => [...prev, ...newProducts]);
+        alert(`成功匯入 ${newProducts.length} 筆商品。\n已略過 ${duplicateCount} 筆重複名稱的商品。`);
+      } else {
+        alert(`無新增商品，所有商品名稱皆已存在。`);
+      }
+
+    } catch (err) {
+      console.error(err);
+      alert("匯入失敗，請檢查 CSV 格式");
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+};
     // 排序與過濾
     const filteredProducts = products.filter(p => { 
         const matchCategory = filterCategory === '所有商品' || p.category === filterCategory; 
@@ -786,11 +900,14 @@ const ItemsManageView = ({ products, setProducts, handleSaveProduct, categories,
         return matchCategory && matchSearch; 
     }).sort((a, b) => (b.isOnSale ? 1 : 0) - (a.isOnSale ? 1 : 0)); 
     
-    const handleBatchDeleteClick = () => {
-        if (selectedIds.length === 0) return;
-        setDeleteTargetId('BATCH');
-        setIsPinModalOpen(true);
-    };
+   const handleBatchDeleteClick = () => {
+    if (selectedIds.length === 0) {
+        alert("尚未選取任何人員");
+        return;
+    }
+    setDeleteTargetId('BATCH');
+    setIsPinModalOpen(true);
+};
 
     const handleBatchToggleSale = (status) => {
         if (selectedIds.length === 0) return;
@@ -1024,23 +1141,43 @@ const DashboardView = ({ orders, customers, onMenuClick, isDarkMode }) => {
         return Object.entries(grouped).map(([label, value]) => ({ label, value }));
     }, [orders, dateRange, chartMode]);
 
-    const handleExportReport = () => {
-        const filteredOrders = orders.filter(o => {
-            const orderDate = o.date.split(' ')[0]; 
-            return orderDate >= dateRange.start && orderDate <= dateRange.end;
-        });
-        if (filteredOrders.length === 0) { return; }
-        const flatData = filteredOrders.map(o => ({ 
-            日期: o.date, 
-            收據號碼: o.order_id, 
-            付費方式: o.method === 'cash' ? '現金' : '記帳', 
-            銷售總額: o.total,
-            購買品項: o.items ? o.items.map(i => `${i.qty} X ${i.name}`).join('; ') : '',
-            收銀員名稱: o.cashier,
-            客戶: o.customer_name
-        }));
-        exportToCSV(flatData, `Receipts_${dateRange.start}_${dateRange.end}`);
+    // 請替換 DashboardView 組件內的 handleExportReport
+const handleExportReport = () => {
+  const filteredOrders = orders.filter(o => {
+    const orderDate = o.date.split(' ')[0];
+    return orderDate >= dateRange.start && orderDate <= dateRange.end;
+  });
+
+  if (filteredOrders.length === 0) { alert("區間內無資料"); return; }
+
+  const flatData = filteredOrders.map(o => {
+    // 判斷備註狀態
+    let statusNote = '正常';
+    if (o.status === 'deleted') statusNote = '已刪除';
+    else if (o.status === 'refunded') statusNote = '已退款';
+    else if (o.logs && o.logs.length > 0) {
+      // 如果有修改紀錄 (這裡假設您之後會把修改log綁定在order上，或單純依據邏輯判斷)
+      // 目前您的架構 log 是分開存的，這裡我們先依據 status 判斷
+      statusNote = '正常'; 
+    }
+    
+    // 如果想要更細緻的「修改過」註記，建議在 onEditOrder 時在 order 物件加一個 flag，例如 o.isEdited = true
+    if (o.isEdited) statusNote += '(曾修改)';
+
+    return {
+      日期: o.date,
+      收據號碼: o.order_id,
+      狀態: statusNote, // 新增欄位
+      付費方式: o.method === 'cash' ? '現金' : '記帳',
+      銷售總額: o.total,
+      購買品項: o.items ? o.items.map(i => `${i.name} x${i.qty}`).join('; ') : '',
+      收銀員名稱: o.cashier,
+      客戶: o.customer_name
     };
+  });
+
+  exportToCSV(flatData, `Receipts_${dateRange.start}_${dateRange.end}`);
+};
 
     const handleExportDetailedList = () => {
         const filteredOrders = orders.filter(o => {
@@ -1264,31 +1401,74 @@ const App = () => {
       exportToJson(backupData, `POS_Backup_${formatDateOnly(new Date())}`);
   };
 
-  const onEditOrder = (oldOrder, newItems) => {
-      const newTotal = newItems.reduce((sum, i) => sum + (i.price * i.qty), 0);
-      const updatedOrders = orders.map(o => o.order_id === oldOrder.order_id ? { ...o, items: newItems, total: newTotal } : o);
-      setOrders(updatedOrders);
-      
-      if (oldOrder.method === 'tab') {
-          const diff = newTotal - oldOrder.total;
-          setCustomers(customers.map(c => c.id === oldOrder.customer_id ? { ...c, balance: c.balance + diff } : c));
-      }
-      
-      addLog('modify', oldOrder.order_id, newTotal, oldOrder.method, oldOrder.customer_name, {
-          before: oldOrder.items,
-          after: newItems,
-          oldTotal: oldOrder.total
-      });
-  };
+  // 2. 編輯訂單並自動計算庫存差異
+const onEditOrder = (oldOrder, newItems) => {
+    // [庫存連動]：計算差異
+    // 邏輯：先將「舊的數量」全部加回庫存，再將「新的數量」從庫存扣除
+    const stockDelta = {}; // 記錄每個商品 ID 的變動量
 
-  const onDeleteOrder = (order) => {
-      const updatedOrders = orders.map(o => o.order_id === order.order_id ? { ...o, status: 'deleted' } : o);
-      setOrders(updatedOrders);
-      if (order.method === 'tab') {
-           setCustomers(customers.map(c => c.id === order.customer_id ? { ...c, balance: c.balance - order.total } : c));
-      }
-      addLog('delete', order.order_id, order.total, order.method, order.customer_name);
-  };
+    // Step A: 舊單加回
+    oldOrder.items.forEach(item => {
+        stockDelta[item.id] = (stockDelta[item.id] || 0) + item.qty;
+    });
+
+    // Step B: 新單扣除
+    newItems.forEach(item => {
+        stockDelta[item.id] = (stockDelta[item.id] || 0) - item.qty;
+    });
+
+    // Step C: 更新 Product State
+    const updatedProducts = products.map(p => {
+        const delta = stockDelta[p.id];
+        if (delta && p.trackStock) {
+            return { ...p, stock: p.stock + delta };
+        }
+        return p;
+    });
+    setProducts(updatedProducts);
+
+    // 更新訂單內容與金額
+    const newTotal = newItems.reduce((sum, i) => sum + (i.price * i.qty), 0);
+    // 加上 isEdited: true 標記，方便 CSV 匯出時判讀
+    const updatedOrders = orders.map(o => o.order_id === oldOrder.order_id ? { ...o, items: newItems, total: newTotal, isEdited: true } : o);
+    setOrders(updatedOrders);
+
+    // 若是記帳，更新客戶餘額差異
+    if (oldOrder.method === 'tab') {
+        const diff = newTotal - oldOrder.total;
+        setCustomers(customers.map(c => c.id === oldOrder.customer_id ? { ...c, balance: c.balance + diff } : c));
+    }
+
+    addLog('modify', oldOrder.order_id, newTotal, oldOrder.method, oldOrder.customer_name, {
+        before: oldOrder.items,
+        after: newItems,
+        oldTotal: oldOrder.total
+    });
+};
+
+  // 1. 刪除訂單並歸還庫存
+const onDeleteOrder = (order) => {
+    // [庫存連動]：遍歷訂單內的商品，若該商品有啟用庫存追蹤，則加回數量
+    const restoredProducts = products.map(p => {
+        const itemInOrder = order.items.find(i => i.id === p.id);
+        if (itemInOrder && p.trackStock) {
+            return { ...p, stock: p.stock + itemInOrder.qty };
+        }
+        return p;
+    });
+    setProducts(restoredProducts);
+
+    // 更新訂單狀態為 deleted
+    const updatedOrders = orders.map(o => o.order_id === order.order_id ? { ...o, status: 'deleted' } : o);
+    setOrders(updatedOrders);
+
+    // 若是記帳，需扣回客戶欠款
+    if (order.method === 'tab') {
+         setCustomers(customers.map(c => c.id === order.customer_id ? { ...c, balance: c.balance - order.total } : c));
+    }
+    
+    addLog('delete', order.order_id, order.total, order.method, order.customer_name);
+};
 
   const handleLoginCheck = (inputPin) => { const user = users.find(u => u.pin === inputPin); if (user) { if (user.requireChange) { setTempUser(user); setView('change_password'); } else { setCurrentUser(user); setView('customer_select'); } } else { if(inputPin === '1234') { setTempUser(users.find(u=>u.role==='admin')); setView('change_password'); } } };
   const handlePasswordChange = (newPin) => { if (!tempUser) return; const updatedUsers = users.map(u => u.id === tempUser.id ? { ...u, pin: newPin, requireChange: false } : u); setUsers(updatedUsers); const loggedInUser = updatedUsers.find(u => u.id === tempUser.id); setCurrentUser(loggedInUser); setTempUser(null); setView('customer_select'); };
